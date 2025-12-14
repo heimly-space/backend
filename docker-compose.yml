@@ -1,0 +1,84 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: heimly_backend
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: "postgresq"
+    ports:
+      - "${HEIMLY_PORT}:${HEIMLY_PORT}"
+    depends_on:
+      - postgres
+      - valkey
+      - rustfs
+    networks:
+      - heimly_net
+
+  postgres:
+    image: postgres:18-alpine
+    container_name: heimly_db
+    hostname: 'heimly_db'
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - heimly_db:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    networks:
+      - heimly_net
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 3s
+      timeout: 10s
+      retries: 3
+
+  valkey:
+    image: valkey/valkey:9-alpine
+    container_name: heimly_cache
+    hostname: 'heimly_cache'
+    restart: always
+    ports:
+      - "${VALKEY_PORT}:6379"
+    networks:
+      - heimly_net
+    volumes:
+      - heimly_cache:/data
+    healthcheck:
+      test: ['CMD', 'valkey-cli', 'ping']
+      interval: 3s
+      timeout: 10s
+      retries: 3
+
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: heimly_storage
+    hostname: 'heimly_storage'
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "${RUSTFS_PORT}:9000"
+      - "${RUSTFS_CONSOLE_PORT}:9001"
+    volumes:
+      - heimly_storage:/data
+    networks:
+      - heimly_net
+    healthcheck:
+      test: ['CMD', 'sh', '-c', 'curl -f http://localhost:9000/health && curl -f http://localhost:9001/rustfs/console/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  heimly_net:
+    name: ${NETWORK_NAME}
+
+volumes:
+  heimly_db:
+  heimly_cache:
+  heimly_storage:
