@@ -7,7 +7,9 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: "postgresq"
+      DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@heimly_db:5432/${POSTGRES_DB}?sslmode=disable"
+      CACHE_URL: "redis://heimly_cache:6379/0"
+      STORAGE_URL: "http://heimly_storage:9000"
     ports:
       - "${HEIMLY_PORT}:${HEIMLY_PORT}"
     depends_on:
