@@ -6,6 +6,7 @@ import (
 	"syscall"
 
 	"heimly.space/backend/internal/cfg"
+	db2 "heimly.space/backend/internal/db"
 )
 
 func main() {
@@ -17,6 +18,13 @@ func main() {
 	println("📝 Loading Heimly config...")
 	conf := cfg.Load()
 	conf.PrintSummary()
+
+	println("Connecting to database...")
+	pool := db2.ConnectDB(conf)
+	defer pool.Close()
+
+	println("Running migrations...")
+	db2.RunMigrations(pool)
 
 	<-signalChan
 	printGoodbye()
