@@ -1,0 +1,201 @@
+openapi: 3.0.3
+info:
+  title: Heimly Backend API
+  version: 0.1.0
+  description: API for auth workflow and current user profile.
+servers:
+  - url: http://localhost:8080
+    description: Local backend
+tags:
+  - name: system
+  - name: auth
+  - name: users
+paths:
+  /health:
+    get:
+      tags: [system]
+      summary: Health check
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    example: ok
+  /api/v1/auth/register:
+    post:
+      tags: [auth]
+      summary: Register user and return access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "200":
+          description: Registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          description: User already exists
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: user already exists
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/v1/auth/login:
+    post:
+      tags: [auth]
+      summary: Login and return access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Logged in successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          description: Invalid credentials
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: invalid credentials
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/v1/users/me:
+    get:
+      tags: [users]
+      summary: Get current user
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "401":
+          description: Missing or invalid JWT token
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: invalid token
+        "404":
+          description: User not found
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: not found
+        "500":
+          $ref: "#/components/responses/InternalError"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    BadRequest:
+      description: Invalid request payload
+      content:
+        text/plain:
+          schema:
+            type: string
+            example: invalid request
+    InternalError:
+      description: Internal server error
+      content:
+        text/plain:
+          schema:
+            type: string
+            example: internal error
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [login, email, name, password]
+      properties:
+        login:
+          type: string
+          minLength: 1
+          example: johndoe
+        email:
+          type: string
+          format: email
+          example: john@example.com
+        name:
+          type: string
+          minLength: 1
+          example: John Doe
+        password:
+          type: string
+          minLength: 6
+          example: supersecret123
+        birthday:
+          type: string
+          format: date
+          nullable: true
+          example: "1995-10-15"
+    LoginRequest:
+      type: object
+      required: [login, password]
+      properties:
+        login:
+          type: string
+          example: johndoe
+        password:
+          type: string
+          example: supersecret123
+    AuthResponse:
+      type: object
+      required: [access_token]
+      properties:
+        access_token:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    UserResponse:
+      type: object
+      required: [id, login, email, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 3c5cb5e6-cd90-4b37-a0be-9f85f77f4f31
+        login:
+          type: string
+          example: johndoe
+        email:
+          type: string
+          format: email
+          example: john@example.com
+        name:
+          type: string
+          example: John Doe
+        birthday:
+          type: string
+          format: date
+          nullable: true
+          example: "1995-10-15"

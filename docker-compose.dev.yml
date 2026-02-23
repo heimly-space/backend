@@ -1,42 +1,42 @@
 services:
-  backend:
-    build:
-      context: .
-      dockerfile: Dockerfile
+  api-docs:
+    image: scalarapi/api-reference:latest
     restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      PORT: "${HEIMLY_PORT}"
-      DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable"
-      CACHE_URL: "redis://valkey:6379/0"
-      STORAGE_URL: "http://rustfs:9000"
-      SHARE_DATA: "${SHARE_DATA:-true}"
+    profiles:
+      - docs
     ports:
-      - "${HEIMLY_PORT}:${HEIMLY_PORT}"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      valkey:
-        condition: service_healthy
-      rustfs:
-        condition: service_healthy
+      - "${DOCS_PORT:-8081}:8080"
     volumes:
-      - heimly_config:/app/.heimly/config
+      - ./api:/docs:ro
+    environment:
+      API_REFERENCE_CONFIG: >-
+        {"sources":[{"url":"/openapi/openapi.yaml","title":"Heimly API Reference","default":true}],
+         "theme":"bluePlanet",
+         "layout":"modern",
+         "metaData":{"title":"Heimly API Reference","description":"Heimly backend API docs"}}
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -q -O- http://localhost:8080/health >/dev/null",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
-      - heimly_net
+      - heimly_dev_net
 
   postgres:
     image: postgres:18-alpine
     restart: unless-stopped
     env_file:
-      - .env
-    volumes:
-      - heimly_db:/var/lib/postgresql/data
+      - .env.dev
     ports:
       - "${POSTGRES_PORT}:5432"
+    volumes:
+      - heimly_dev_db:/var/lib/postgresql/data
     networks:
-      - heimly_net
+      - heimly_dev_net
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB} || exit 1']
       interval: 3s
@@ -48,10 +48,10 @@ services:
     restart: unless-stopped
     ports:
       - "${VALKEY_PORT}:6379"
-    networks:
-      - heimly_net
     volumes:
-      - heimly_cache:/data
+      - heimly_dev_cache:/data
+    networks:
+      - heimly_dev_net
     healthcheck:
       test: ['CMD', 'valkey-cli', 'ping']
       interval: 3s
@@ -62,14 +62,14 @@ services:
     image: rustfs/rustfs:latest
     restart: unless-stopped
     env_file:
-      - .env
+      - .env.dev
     ports:
       - "${RUSTFS_PORT}:9000"
       - "${RUSTFS_CONSOLE_PORT}:9001"
     volumes:
-      - heimly_storage:/data
+      - heimly_dev_storage:/data
     networks:
-      - heimly_net
+      - heimly_dev_net
     healthcheck:
       test: ['CMD-SHELL', 'curl -fsS http://localhost:9000/health && curl -fsS http://localhost:9001/rustfs/console/health || exit 1']
       interval: 30s
@@ -78,11 +78,10 @@ services:
       start_period: 40s
 
 networks:
-  heimly_net:
+  heimly_dev_net:
     name: ${NETWORK_NAME}
 
 volumes:
-  heimly_config:
-  heimly_db:
-  heimly_cache:
-  heimly_storage:
+  heimly_dev_db:
+  heimly_dev_cache:
+  heimly_dev_storage:

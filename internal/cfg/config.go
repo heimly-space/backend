@@ -1,6 +1,8 @@
 package cfg
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"log"
 	"os"
@@ -16,6 +18,7 @@ const configName = "cfg.yml"
 type Config struct {
 	ID        uuid.UUID `yaml:"id"`
 	ShareData bool      `yaml:"share_data"`
+	JWTSecret string    `yaml:"jwt_secret"`
 
 	Port        int    `yaml:"-"`
 	DatabaseURL string `yaml:"-"`
@@ -36,6 +39,7 @@ func (c *Config) PrintSummary() {
 	fmt.Println("==========================")
 	fmt.Printf("Instance ID:\t%s\n", c.ID)
 	fmt.Printf("Share data:\t%t\n", c.ShareData)
+	fmt.Printf("JWT secret:\t%s\n", sanitize(c.JWTSecret))
 	fmt.Printf("Database:\t%s\n", sanitize(c.DatabaseURL))
 	fmt.Printf("Cache:\t%s\n", sanitize(c.CacheURL))
 	fmt.Printf("Storage:\t%s\n", sanitize(c.StorageURL))
@@ -97,6 +101,19 @@ func loadShareData() bool {
 	return true
 }
 
+func loadOrGenerateJWTSecret() string {
+	if v := os.Getenv("JWT_SECRET"); v != "" {
+		return v
+	}
+
+	secretBytes := make([]byte, 32)
+	if _, err := rand.Read(secretBytes); err != nil {
+		log.Fatalf("failed to generate JWT secret: %v", err)
+	}
+
+	return base64.StdEncoding.EncodeToString(secretBytes)
+}
+
 func loadOrInitConfig() *Config {
 	data, err := os.ReadFile(configPath + configName)
 	if err != nil {
@@ -104,6 +121,7 @@ func loadOrInitConfig() *Config {
 			cfg := &Config{
 				ID:        uuid.New(),
 				ShareData: loadShareData(),
+				JWTSecret: loadOrGenerateJWTSecret(),
 			}
 			if err := saveConfig(cfg); err != nil {
 				panic(err)
@@ -117,6 +135,14 @@ func loadOrInitConfig() *Config {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		panic(err)
 	}
+
+	if cfg.JWTSecret == "" {
+		cfg.JWTSecret = loadOrGenerateJWTSecret()
+		if err := saveConfig(&cfg); err != nil {
+			panic(err)
+		}
+	}
+
 	return &cfg
 }
 
