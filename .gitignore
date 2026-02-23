@@ -1,4 +1,5 @@
 .idea/**/workspace.xml
+.idea/go.imports.xml
 .idea/**/tasks.xml
 .idea/**/usage.statistics.xml
 .idea/**/dictionaries
@@ -28,6 +29,7 @@ crashlytics-build.properties
 fabric.properties
 .idea/httpRequests
 .idea/caches/build_file_checksums.ser
+.idea/go.imports.xml
 *.exe
 *.exe~
 *.dll
