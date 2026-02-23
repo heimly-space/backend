@@ -30,6 +30,28 @@ docker compose down
 docker compose logs -f
 ```
 
+## Dev Mode (IDE + local infra) 🧪
+
+### 1) Prepare dev env
+
+```bash
+cp .env.dev.example .env.dev
+```
+
+### 2) Start only infra
+
+```bash
+docker compose -f docker-compose.dev.yml --env-file .env.dev up -d
+```
+
+Then run backend from GoLand with environment file `.env.dev`.
+
+### 3) Stop infra
+
+```bash
+docker compose -f docker-compose.dev.yml --env-file .env.dev down
+```
+
 ## `.env` Quick Guide 📦
 
 - `HEIMLY_PORT`: Backend port (host + container).
@@ -51,3 +73,11 @@ docker compose logs -f
 - Infra data is persisted in `heimly_db`, `heimly_cache`, `heimly_storage`.
 - Backend connects internally via Compose service names: `postgres`, `valkey`, `rustfs`.
 - Privacy: we do not collect personal data. `SHARE_DATA` only controls aggregated app usage stats/analytics.
+
+## GoLand Docker Debugging 🐞
+
+Yes, you can debug via Docker in GoLand.
+
+- Easiest flow: run infra with `docker-compose.dev.yml`, run backend in GoLand using `.env.dev`, debug normally.
+- Full Docker-debug flow is also possible via Delve inside container + GoLand "Go Remote" config.
+- Current repo does not include a dedicated Delve debug Dockerfile yet, so you’d add one when you want full in-container debugging.
