@@ -46,6 +46,14 @@ docker compose -f docker-compose.dev.yml --env-file .env.dev up -d
 
 Then run backend from GoLand with environment file `.env.dev`.
 
+Optional: start Scalar docs too:
+
+```bash
+docker compose -f docker-compose.dev.yml --env-file .env.dev --profile docs up -d
+```
+
+Docs URL: `http://localhost:8081` (or custom `DOCS_PORT`)
+
 ### 3) Stop infra
 
 ```bash
@@ -57,6 +65,7 @@ docker compose -f docker-compose.dev.yml --env-file .env.dev down
 - OpenAPI spec: `api/openapi.yaml`
 - GoLand HTTP samples: `api/http/health.http`, `api/http/auth.http`
 - GoLand HTTP environments: `api/http/http-client.env.json` (`local` / `docker`)
+- Scalar docs service: `api-docs` (dev compose profile: `docs`)
 
 In GoLand HTTP client, pick environment (`local` or `docker`) and run requests from `.http` files.
 
