@@ -1,0 +1,4 @@
+# Select `local` or `docker` environment from `api/http/http-client.env.json`.
+### Health
+GET {{baseUrl}}/health
+Accept: application/json

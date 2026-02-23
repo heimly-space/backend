@@ -52,6 +52,14 @@ Then run backend from GoLand with environment file `.env.dev`.
 docker compose -f docker-compose.dev.yml --env-file .env.dev down
 ```
 
+## API Docs + GoLand HTTP 🔎
+
+- OpenAPI spec: `api/openapi.yaml`
+- GoLand HTTP samples: `api/http/health.http`, `api/http/auth.http`
+- GoLand HTTP environments: `api/http/http-client.env.json` (`local` / `docker`)
+
+In GoLand HTTP client, pick environment (`local` or `docker`) and run requests from `.http` files.
+
 ## `.env` Quick Guide 📦
 
 - `HEIMLY_PORT`: Backend port (host + container).
