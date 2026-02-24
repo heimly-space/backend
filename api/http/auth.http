@@ -1,10 +1,10 @@
 # Select `local` or `docker` environment from `api/http/http-client.env.json`.
-@login = demo{{$timestamp}}
-@email = demo{{$timestamp}}@example.com
-@name = Demo User
-@password = demo-pass-123
+@login = alice{{$timestamp}}
+@email = alice{{$timestamp}}@example.com
+@name = Alice Liddell
+@password = cheshire-smile-123
 
-### Register (stores JWT to client.global token)
+### Register (stores access + refresh tokens)
 POST {{baseUrl}}/api/v1/auth/register
 Content-Type: application/json
 Accept: application/json
@@ -18,12 +18,13 @@ Accept: application/json
 }
 
 > {%
-  if (response.status === 200 && response.body && response.body.access_token) {
-    client.global.set("token", response.body.access_token);
+  if (response.status === 200 && response.body) {
+    if (response.body.access_token) client.global.set("token", response.body.access_token);
+    if (response.body.refresh_token) client.global.set("refreshToken", response.body.refresh_token);
   }
 %}
 
-### Login (refreshes JWT in client.global token)
+### Login (refreshes access + refresh tokens)
 POST {{baseUrl}}/api/v1/auth/login
 Content-Type: application/json
 Accept: application/json
@@ -34,10 +35,37 @@ Accept: application/json
 }
 
 > {%
-  if (response.status === 200 && response.body && response.body.access_token) {
-    client.global.set("token", response.body.access_token);
+  if (response.status === 200 && response.body) {
+    if (response.body.access_token) client.global.set("token", response.body.access_token);
+    if (response.body.refresh_token) client.global.set("refreshToken", response.body.refresh_token);
   }
 %}
+
+### Refresh access token by refresh token
+POST {{baseUrl}}/api/v1/auth/refresh
+Content-Type: application/json
+Accept: application/json
+
+{
+  "refresh_token": "{{refreshToken}}"
+}
+
+> {%
+  if (response.status === 200 && response.body) {
+    if (response.body.access_token) client.global.set("token", response.body.access_token);
+    if (response.body.refresh_token) client.global.set("refreshToken", response.body.refresh_token);
+  }
+%}
+
+### Logout current session
+POST {{baseUrl}}/api/v1/auth/logout
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{token}}
+
+{
+  "refresh_token": "{{refreshToken}}"
+}
 
 ### Current user profile (requires token)
 GET {{baseUrl}}/api/v1/users/me

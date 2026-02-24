@@ -30,7 +30,7 @@ paths:
   /api/v1/auth/register:
     post:
       tags: [auth]
-      summary: Register user and return access token
+      summary: Register user and return access + refresh tokens
       requestBody:
         required: true
         content:
@@ -58,7 +58,7 @@ paths:
   /api/v1/auth/login:
     post:
       tags: [auth]
-      summary: Login and return access token
+      summary: Login and return access + refresh tokens
       requestBody:
         required: true
         content:
@@ -81,6 +81,63 @@ paths:
               schema:
                 type: string
                 example: invalid credentials
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/v1/auth/refresh:
+    post:
+      tags: [auth]
+      summary: Rotate refresh token and return fresh access + refresh tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "200":
+          description: Tokens rotated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          description: Invalid refresh token
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: invalid refresh token
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/v1/auth/logout:
+    post:
+      tags: [auth]
+      summary: Logout current session by revoking refresh token and current access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LogoutRequest"
+      responses:
+        "204":
+          description: Logged out successfully
+        "400":
+          description: Missing refresh token
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: refresh token is required
+        "401":
+          description: Invalid bearer token
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: invalid token
         "500":
           $ref: "#/components/responses/InternalError"
   /api/v1/users/me:
@@ -141,15 +198,15 @@ components:
         login:
           type: string
           minLength: 1
-          example: johndoe
+          example: alice_liddell
         email:
           type: string
           format: email
-          example: john@example.com
+          example: alice@example.com
         name:
           type: string
           minLength: 1
-          example: John Doe
+          example: Alice Liddell
         password:
           type: string
           minLength: 6
@@ -165,17 +222,34 @@ components:
       properties:
         login:
           type: string
-          example: johndoe
+          example: alice_liddell
         password:
           type: string
           example: supersecret123
+    RefreshRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+          example: 3cWJKJtwPf3N29...
+    LogoutRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+          example: yQf2X6lmjYJ-7B9...
     AuthResponse:
       type: object
-      required: [access_token]
+      required: [access_token, refresh_token]
       properties:
         access_token:
           type: string
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        refresh_token:
+          type: string
+          example: yQf2X6lmjYJ-7B9...
     UserResponse:
       type: object
       required: [id, login, email, name]
@@ -186,14 +260,14 @@ components:
           example: 3c5cb5e6-cd90-4b37-a0be-9f85f77f4f31
         login:
           type: string
-          example: johndoe
+          example: alice_liddell
         email:
           type: string
           format: email
-          example: john@example.com
+          example: alice@example.com
         name:
           type: string
-          example: John Doe
+          example: Alice Liddell
         birthday:
           type: string
           format: date

@@ -73,6 +73,8 @@ In GoLand HTTP client, pick environment (`local` or `docker`) and run requests f
 
 - `HEIMLY_PORT`: Backend port (host + container).
 - `SHARE_DATA`: App analytics flag (`true` / `false`). Default is `true`.
+- `ACCESS_TOKEN_TTL`: Access token lifetime (Go duration, e.g. `15m`).
+- `REFRESH_TOKEN_TTL`: Refresh token lifetime (Go duration, e.g. `720h`).
 - `POSTGRES_USER`: Postgres user.
 - `POSTGRES_PASSWORD`: Postgres password.
 - `POSTGRES_DB`: Postgres database name.
@@ -89,6 +91,8 @@ In GoLand HTTP client, pick environment (`local` or `docker`) and run requests f
 - Backend config is persisted in volume `heimly_config`.
 - Infra data is persisted in `heimly_db`, `heimly_cache`, `heimly_storage`.
 - Backend connects internally via Compose service names: `postgres`, `valkey`, `rustfs`.
+- Refresh tokens are stored in Valkey (hashed + TTL, atomic rotation on refresh).
+- Access tokens include JWT `jti`; middleware validates token is active in Valkey.
 - Privacy: we do not collect personal data. `SHARE_DATA` only controls aggregated app usage stats/analytics.
 
 ## GoLand Docker Debugging 🐞
