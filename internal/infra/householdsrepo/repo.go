@@ -155,6 +155,60 @@ func (r *Repo) ListMembers(ctx context.Context, householdID uuid.UUID) ([]domain
 	return result, nil
 }
 
+func (r *Repo) ListByUser(
+	ctx context.Context,
+	userID uuid.UUID,
+	cursor *domain.ListCursor,
+	limit int,
+) ([]domain.HouseholdWithRole, error) {
+	const q = `
+		SELECT h.id, h.name, hm.role, h.created_at, hm.created_at
+		FROM household_members hm
+		JOIN households h ON h.id = hm.household_id
+		WHERE hm.user_id = $1
+		  AND (
+		    $2::timestamptz IS NULL
+		    OR hm.created_at < $2
+		    OR (hm.created_at = $2 AND hm.household_id < $3)
+		  )
+		ORDER BY hm.created_at DESC, hm.household_id DESC
+		LIMIT $4
+	`
+
+	var cursorCreatedAt any
+	var cursorHouseholdID any
+	if cursor != nil {
+		cursorCreatedAt = cursor.MemberCreatedAt
+		cursorHouseholdID = cursor.HouseholdID
+	}
+
+	rows, err := r.DB.Query(ctx, q, userID, cursorCreatedAt, cursorHouseholdID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make([]domain.HouseholdWithRole, 0)
+	for rows.Next() {
+		var item domain.HouseholdWithRole
+		if err := rows.Scan(
+			&item.ID,
+			&item.Name,
+			&item.Role,
+			&item.CreatedAt,
+			&item.MemberCreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
 func isUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	if !errors.As(err, &pgErr) {

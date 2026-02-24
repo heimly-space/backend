@@ -19,3 +19,16 @@ type Member struct {
 	Role      string
 	CreatedAt time.Time
 }
+
+type HouseholdWithRole struct {
+	ID              uuid.UUID
+	Name            string
+	Role            string
+	CreatedAt       time.Time
+	MemberCreatedAt time.Time
+}
+
+type ListCursor struct {
+	MemberCreatedAt time.Time
+	HouseholdID     uuid.UUID
+}

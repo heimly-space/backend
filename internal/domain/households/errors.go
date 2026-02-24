@@ -8,4 +8,5 @@ var (
 	ErrForbidden             = errors.New("forbidden")
 	ErrUserNotFound          = errors.New("user not found")
 	ErrMemberAlreadyExists   = errors.New("member already exists")
+	ErrInvalidCursor         = errors.New("invalid cursor")
 )
