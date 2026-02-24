@@ -1,13 +1,31 @@
 package main
 
+import "fmt"
+
 func printWelcome() {
-	println("==========================")
-	println("   Welcome to Heimly! 👋  ")
-	println("==========================")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("✨ Heimly backend starting")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 }
 
 func printGoodbye() {
-	println("==========================")
-	println(" Shutting down Heimly! 👋 ")
-	println("==========================")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println("👋 Heimly backend stopped")
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+}
+
+func printStep(message string) {
+	fmt.Printf("📝 %s\n", message)
+}
+
+func printInfo(message string) {
+	fmt.Printf("ℹ️  %s\n", message)
+}
+
+func printOK(message string) {
+	fmt.Printf("✅ %s\n", message)
+}
+
+func printWarn(message string) {
+	fmt.Printf("⚠️  %s\n", message)
 }
