@@ -7,11 +7,16 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"heimly.space/backend/internal/cfg"
+	householdhttp "heimly.space/backend/internal/transport/http/households"
 	httpmw "heimly.space/backend/internal/transport/http/middleware"
 	"heimly.space/backend/internal/transport/http/users"
 )
 
-func NewRouter(authHandlers *users.AuthHandlers, cfg *cfg.Config) chi.Router {
+func NewRouter(
+	authHandlers *users.AuthHandlers,
+	householdHandlers *householdhttp.Handlers,
+	cfg *cfg.Config,
+) chi.Router {
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
@@ -32,10 +37,20 @@ func NewRouter(authHandlers *users.AuthHandlers, cfg *cfg.Config) chi.Router {
 			r.Post("/logout", authHandlers.Logout)
 		})
 
-		r.Route("/users", func(r chi.Router) {
+		r.Group(func(r chi.Router) {
 			r.Use(httpmw.JWTMiddleware(cfg.JWTSecret, authHandlers.Users.AccessTokens))
-			r.Get("/me", authHandlers.GetMe)
+
+			r.Route("/users", func(r chi.Router) {
+				r.Get("/me", authHandlers.GetMe)
+			})
+
+			r.Route("/households", func(r chi.Router) {
+				r.Post("/", householdHandlers.Create)
+				r.Post("/{id}/members", householdHandlers.InviteMember)
+				r.Get("/{id}/members", householdHandlers.ListMembers)
+			})
 		})
+
 	})
 
 	return r
