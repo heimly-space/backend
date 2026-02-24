@@ -91,7 +91,7 @@ In GoLand HTTP client, pick environment (`local` or `docker`) and run requests f
 - Backend config is persisted in volume `heimly_config`.
 - Infra data is persisted in `heimly_db`, `heimly_cache`, `heimly_storage`.
 - Backend connects internally via Compose service names: `postgres`, `valkey`, `rustfs`.
-- Refresh tokens are stored in Valkey (hashed + TTL, atomic rotation on refresh).
+- Refresh tokens are JWTs; Valkey stores only active refresh `jti` values with TTL and atomic rotation.
 - Access tokens include JWT `jti`; middleware validates token is active in Valkey.
 - Privacy: we do not collect personal data. `SHARE_DATA` only controls aggregated app usage stats/analytics.
 
