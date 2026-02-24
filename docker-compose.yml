@@ -12,6 +12,8 @@ services:
       CACHE_URL: "redis://valkey:6379/0"
       STORAGE_URL: "http://rustfs:9000"
       SHARE_DATA: "${SHARE_DATA:-true}"
+      ACCESS_TOKEN_TTL: "${ACCESS_TOKEN_TTL:-15m}"
+      REFRESH_TOKEN_TTL: "${REFRESH_TOKEN_TTL:-720h}"
     ports:
       - "${HEIMLY_PORT}:${HEIMLY_PORT}"
     depends_on:

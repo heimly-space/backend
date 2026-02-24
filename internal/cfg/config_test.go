@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -39,9 +40,30 @@ func TestLoadCreatesConfigWithDefaultsAndRuntimeEnv(t *testing.T) {
 	if cfg.StorageURL != "http://test-storage" {
 		t.Fatalf("unexpected storage url: %q", cfg.StorageURL)
 	}
+	if cfg.AccessTokenTTL != 15*time.Minute {
+		t.Fatalf("expected default access token ttl 15m, got %s", cfg.AccessTokenTTL)
+	}
+	if cfg.RefreshTokenTTL != 30*24*time.Hour {
+		t.Fatalf("expected default refresh token ttl 720h, got %s", cfg.RefreshTokenTTL)
+	}
 
 	if _, err := os.Stat(filepath.Join(configPath, configName)); err != nil {
 		t.Fatalf("expected config file to be created: %v", err)
+	}
+}
+
+func TestLoadDurationEnvOverrides(t *testing.T) {
+	chdirToTempDir(t)
+	setRequiredRuntimeEnv(t)
+	t.Setenv("ACCESS_TOKEN_TTL", "10m")
+	t.Setenv("REFRESH_TOKEN_TTL", "168h")
+
+	cfg := Load()
+	if cfg.AccessTokenTTL != 10*time.Minute {
+		t.Fatalf("expected access token ttl 10m, got %s", cfg.AccessTokenTTL)
+	}
+	if cfg.RefreshTokenTTL != 168*time.Hour {
+		t.Fatalf("expected refresh token ttl 168h, got %s", cfg.RefreshTokenTTL)
 	}
 }
 
