@@ -171,6 +171,49 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
   /api/v1/households:
+    get:
+      tags: [households]
+      summary: List current user's households with role info
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: cursor
+          required: false
+          schema:
+            type: string
+          description: Opaque cursor returned by previous page
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Current user's households
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HouseholdsResponse"
+        "400":
+          description: Invalid cursor or limit
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: invalid cursor
+        "401":
+          description: Missing or invalid JWT token
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: invalid token
+        "500":
+          $ref: "#/components/responses/InternalError"
     post:
       tags: [households]
       summary: Create a new household
@@ -444,6 +487,36 @@ components:
           type: string
           format: date-time
           example: "2026-02-24T12:34:56Z"
+    HouseholdWithRoleResponse:
+      type: object
+      required: [id, name, role, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 8cd4bd93-c93f-4b39-9ebb-c787f9a6d268
+        name:
+          type: string
+          example: Wonderland Flat
+        role:
+          type: string
+          example: owner
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-02-24T12:34:56Z"
+    HouseholdsResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/HouseholdWithRoleResponse"
+        next_cursor:
+          type: string
+          nullable: true
+          example: MTcwODc4ODQwMDAwMDAwMDAwfDhjZDRiZDkzLWM5M2YtNGIzOS05ZWJiLWM3ODdmOWE2ZDI2OA
     InviteMemberRequest:
       type: object
       required: [email]
