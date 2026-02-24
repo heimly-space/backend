@@ -130,6 +130,12 @@ type routerHouseholdRepoStub struct {
 	isMemberFn         func(ctx context.Context, householdID, userID uuid.UUID) (bool, error)
 	addMemberByEmailFn func(ctx context.Context, householdID uuid.UUID, email string) (*householddomain.Member, error)
 	listMembersFn      func(ctx context.Context, householdID uuid.UUID) ([]householddomain.Member, error)
+	listByUserFn       func(
+		ctx context.Context,
+		userID uuid.UUID,
+		cursor *householddomain.ListCursor,
+		limit int,
+	) ([]householddomain.HouseholdWithRole, error)
 }
 
 func (r *routerHouseholdRepoStub) Create(
@@ -181,6 +187,18 @@ func (r *routerHouseholdRepoStub) ListMembers(
 	return r.listMembersFn(ctx, householdID)
 }
 
+func (r *routerHouseholdRepoStub) ListByUser(
+	ctx context.Context,
+	userID uuid.UUID,
+	cursor *householddomain.ListCursor,
+	limit int,
+) ([]householddomain.HouseholdWithRole, error) {
+	if r.listByUserFn == nil {
+		return nil, errors.New("unexpected ListByUser household call")
+	}
+	return r.listByUserFn(ctx, userID, cursor, limit)
+}
+
 func newTestRouter(
 	secret string,
 	repo domain.Repository,
@@ -214,6 +232,14 @@ func newTestRouter(
 				},
 				listMembersFn: func(_ context.Context, _ uuid.UUID) ([]householddomain.Member, error) {
 					return nil, errors.New("unexpected household list")
+				},
+				listByUserFn: func(
+					_ context.Context,
+					_ uuid.UUID,
+					_ *householddomain.ListCursor,
+					_ int,
+				) ([]householddomain.HouseholdWithRole, error) {
+					return nil, errors.New("unexpected household list-by-user")
 				},
 			},
 		},
@@ -669,5 +695,97 @@ func TestRouterCreateHouseholdRoute(t *testing.T) {
 	}
 	if !resp.CreatedAt.Equal(createdAt) {
 		t.Fatalf("unexpected created_at: %s", resp.CreatedAt)
+	}
+}
+
+func TestRouterListHouseholdsRoute(t *testing.T) {
+	userID := uuid.New()
+	secret := "secret"
+	var accessToken string
+	householdID := uuid.New()
+	createdAt := time.Date(2026, time.February, 24, 10, 0, 0, 0, time.UTC)
+
+	router := newTestRouterWithHouseholdsRepo(
+		secret,
+		&routerHouseholdRepoStub{
+			createFn: func(_ context.Context, _ string, _ uuid.UUID) (*householddomain.Household, error) {
+				t.Fatal("Create should not be called")
+				return nil, nil
+			},
+			existsFn: func(_ context.Context, _ uuid.UUID) (bool, error) {
+				t.Fatal("Exists should not be called")
+				return false, nil
+			},
+			isMemberFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
+				t.Fatal("IsMember should not be called")
+				return false, nil
+			},
+			addMemberByEmailFn: func(_ context.Context, _ uuid.UUID, _ string) (*householddomain.Member, error) {
+				t.Fatal("AddMemberByEmail should not be called")
+				return nil, nil
+			},
+			listMembersFn: func(_ context.Context, _ uuid.UUID) ([]householddomain.Member, error) {
+				t.Fatal("ListMembers should not be called")
+				return nil, nil
+			},
+			listByUserFn: func(
+				_ context.Context,
+				gotUserID uuid.UUID,
+				cursor *householddomain.ListCursor,
+				limit int,
+			) ([]householddomain.HouseholdWithRole, error) {
+				if gotUserID != userID {
+					t.Fatalf("unexpected user id: %s", gotUserID)
+				}
+				if cursor != nil {
+					t.Fatalf("unexpected cursor: %+v", cursor)
+				}
+				if limit != 11 {
+					t.Fatalf("unexpected limit: %d", limit)
+				}
+				return []householddomain.HouseholdWithRole{
+					{ID: householdID, Name: "Wonderland Flat", Role: "owner", CreatedAt: createdAt},
+				}, nil
+			},
+		},
+		&routerAccessStoreStub{
+			storeFn: func(_ context.Context, _ string, _ uuid.UUID, _ time.Duration) error {
+				t.Fatal("StoreAccessToken should not be called")
+				return nil
+			},
+			isActiveFn: func(_ context.Context, jti string, gotUserID uuid.UUID) (bool, error) {
+				claims, err := authinfra.ParseTokenClaims(accessToken, secret)
+				if err != nil {
+					t.Fatalf("parse token claims: %v", err)
+				}
+				return claims.JTI == jti && gotUserID == userID, nil
+			},
+		},
+	)
+
+	token, err := authinfra.GenerateToken(userID, secret, time.Hour)
+	if err != nil {
+		t.Fatalf("generate access token: %v", err)
+	}
+	accessToken = token
+
+	req := httptest.NewRequest(nethttp.MethodGet, "/api/v1/households?limit=10", nil)
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != nethttp.StatusOK {
+		t.Fatalf("expected 200, got %d (%s)", rec.Code, rec.Body.String())
+	}
+
+	var resp householdshttp.HouseholdsResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode list households response: %v", err)
+	}
+	if len(resp.Items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(resp.Items))
+	}
+	if resp.Items[0].ID != householdID.String() || resp.Items[0].Role != "owner" {
+		t.Fatalf("unexpected item: %+v", resp.Items[0])
 	}
 }

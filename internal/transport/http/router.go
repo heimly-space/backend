@@ -45,6 +45,7 @@ func NewRouter(
 			})
 
 			r.Route("/households", func(r chi.Router) {
+				r.Get("/", householdHandlers.ListByUser)
 				r.Post("/", householdHandlers.Create)
 				r.Post("/{id}/members", householdHandlers.InviteMember)
 				r.Get("/{id}/members", householdHandlers.ListMembers)

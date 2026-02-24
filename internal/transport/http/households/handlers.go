@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -13,6 +14,54 @@ import (
 
 type Handlers struct {
 	Households *domain.Service
+}
+
+func (h *Handlers) ListByUser(w http.ResponseWriter, r *http.Request) {
+	userID, ok := httpmw.UserIDFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	limit := 0
+	if rawLimit := r.URL.Query().Get("limit"); rawLimit != "" {
+		parsed, err := strconv.Atoi(rawLimit)
+		if err != nil {
+			http.Error(w, "invalid limit", http.StatusBadRequest)
+			return
+		}
+		if parsed <= 0 {
+			http.Error(w, "invalid limit", http.StatusBadRequest)
+			return
+		}
+		limit = parsed
+	}
+
+	result, err := h.Households.ListByUser(r.Context(), userID, r.URL.Query().Get("cursor"), limit)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrInvalidCursor):
+			http.Error(w, "invalid cursor", http.StatusBadRequest)
+		default:
+			http.Error(w, "internal error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	resp := HouseholdsResponse{
+		Items:      make([]HouseholdWithRoleResponse, 0, len(result.Items)),
+		NextCursor: result.NextCursor,
+	}
+	for _, item := range result.Items {
+		resp.Items = append(resp.Items, HouseholdWithRoleResponse{
+			ID:        item.ID.String(),
+			Name:      item.Name,
+			Role:      item.Role,
+			CreatedAt: item.CreatedAt,
+		})
+	}
+
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func (h *Handlers) Create(w http.ResponseWriter, r *http.Request) {
