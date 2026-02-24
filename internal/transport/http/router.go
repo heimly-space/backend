@@ -28,10 +28,12 @@ func NewRouter(authHandlers *users.AuthHandlers, cfg *cfg.Config) chi.Router {
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/register", authHandlers.Register)
 			r.Post("/login", authHandlers.Login)
+			r.Post("/refresh", authHandlers.Refresh)
+			r.Post("/logout", authHandlers.Logout)
 		})
 
 		r.Route("/users", func(r chi.Router) {
-			r.Use(httpmw.JWTMiddleware(cfg.JWTSecret))
+			r.Use(httpmw.JWTMiddleware(cfg.JWTSecret, authHandlers.Users.AccessTokens))
 			r.Get("/me", authHandlers.GetMe)
 		})
 	})

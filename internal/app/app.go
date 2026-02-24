@@ -9,6 +9,7 @@ import (
 	"heimly.space/backend/internal/cfg"
 	db "heimly.space/backend/internal/db"
 	"heimly.space/backend/internal/domain/users"
+	"heimly.space/backend/internal/infra/refreshtokens"
 	"heimly.space/backend/internal/infra/usersrepo"
 	httpx "heimly.space/backend/internal/transport/http"
 	usershttp "heimly.space/backend/internal/transport/http/users"
@@ -22,12 +23,19 @@ type App struct {
 func New(cfg *cfg.Config) *App {
 	pool := db.ConnectDB(cfg)
 	db.RunMigrations(pool)
+	refreshStore, err := refreshtokens.NewStoreFromURL(cfg.CacheURL)
+	if err != nil {
+		panic(err)
+	}
 
 	userRepo := &usersrepo.Repo{DB: pool}
 	userService := &users.Service{
-		Repo:      userRepo,
-		JWTSecret: cfg.JWTSecret,
-		JWTExpiry: 24 * time.Hour,
+		Repo:            userRepo,
+		AccessTokens:    refreshStore,
+		RefreshTokens:   refreshStore,
+		JWTSecret:       cfg.JWTSecret,
+		AccessTokenTTL:  cfg.AccessTokenTTL,
+		RefreshTokenTTL: cfg.RefreshTokenTTL,
 	}
 	authHandlers := &usershttp.AuthHandlers{Users: userService}
 	router := httpx.NewRouter(authHandlers, cfg)
