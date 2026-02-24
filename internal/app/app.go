@@ -32,7 +32,10 @@ func New(cfg *cfg.Config) *App {
 	}
 
 	householdRepo := &householdsrepo.Repo{DB: pool}
-	householdService := &households.Service{Repo: householdRepo}
+	householdService := &households.Service{
+		Repo:         householdRepo,
+		CursorSecret: cfg.JWTSecret,
+	}
 
 	userRepo := &usersrepo.Repo{DB: pool}
 	userService := &users.Service{

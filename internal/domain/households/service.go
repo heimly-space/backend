@@ -2,7 +2,10 @@ package households
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -12,7 +15,8 @@ import (
 )
 
 type Service struct {
-	Repo Repository
+	Repo         Repository
+	CursorSecret string
 }
 
 const (
@@ -74,8 +78,12 @@ func (s *Service) ListByUser(
 	cursorRaw string,
 	limit int,
 ) (*ListResult, error) {
+	if strings.TrimSpace(s.CursorSecret) == "" {
+		return nil, errors.New("cursor secret is not configured")
+	}
+
 	listLimit := normalizeLimit(limit)
-	cursor, err := parseCursor(cursorRaw)
+	cursor, err := parseCursor(cursorRaw, s.CursorSecret)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidCursor, err)
 	}
@@ -92,10 +100,13 @@ func (s *Service) ListByUser(
 	if len(rows) > listLimit {
 		last := rows[listLimit-1]
 		result.Items = rows[:listLimit]
-		result.NextCursor = encodeCursor(ListCursor{
-			MemberCreatedAt: last.MemberCreatedAt,
-			HouseholdID:     last.ID,
-		})
+		result.NextCursor = encodeCursor(
+			ListCursor{
+				MemberCreatedAt: last.MemberCreatedAt,
+				HouseholdID:     last.ID,
+			},
+			s.CursorSecret,
+		)
 	}
 
 	return result, nil
@@ -130,7 +141,7 @@ func normalizeLimit(limit int) int {
 	return limit
 }
 
-func parseCursor(raw string) (*ListCursor, error) {
+func parseCursor(raw, secret string) (*ListCursor, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return nil, nil
@@ -141,9 +152,9 @@ func parseCursor(raw string) (*ListCursor, error) {
 		return nil, err
 	}
 
-	parts := strings.SplitN(string(decoded), "|", 2)
-	if len(parts) != 2 {
-		return nil, fmt.Errorf("expected 2 parts")
+	parts := strings.SplitN(string(decoded), "|", 3)
+	if len(parts) != 3 {
+		return nil, fmt.Errorf("expected 3 parts")
 	}
 
 	ns, err := strconv.ParseInt(parts[0], 10, 64)
@@ -155,13 +166,36 @@ func parseCursor(raw string) (*ListCursor, error) {
 		return nil, err
 	}
 
+	payload := parts[0] + "|" + parts[1]
+	if !validateCursorSignature(payload, parts[2], secret) {
+		return nil, fmt.Errorf("invalid signature")
+	}
+
 	return &ListCursor{
 		MemberCreatedAt: time.Unix(0, ns).UTC(),
 		HouseholdID:     householdID,
 	}, nil
 }
 
-func encodeCursor(cursor ListCursor) string {
+func encodeCursor(cursor ListCursor, secret string) string {
 	payload := fmt.Sprintf("%d|%s", cursor.MemberCreatedAt.UTC().UnixNano(), cursor.HouseholdID.String())
-	return base64.RawURLEncoding.EncodeToString([]byte(payload))
+	signature := signCursorPayload(payload, secret)
+	return base64.RawURLEncoding.EncodeToString([]byte(payload + "|" + signature))
+}
+
+func signCursorPayload(payload, secret string) string {
+	h := hmac.New(sha256.New, []byte(secret))
+	h.Write([]byte(payload))
+	return base64.RawURLEncoding.EncodeToString(h.Sum(nil))
+}
+
+func validateCursorSignature(payload, signature, secret string) bool {
+	decodedSignature, err := base64.RawURLEncoding.DecodeString(signature)
+	if err != nil {
+		return false
+	}
+
+	expected := hmac.New(sha256.New, []byte(secret))
+	expected.Write([]byte(payload))
+	return hmac.Equal(decodedSignature, expected.Sum(nil))
 }
