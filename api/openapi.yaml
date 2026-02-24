@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Heimly Backend API
   version: 0.1.0
-  description: API for auth workflow and current user profile.
+  description: API for auth workflow, current user profile, and household collaboration.
 servers:
   - url: http://localhost:8080
     description: Local backend
@@ -10,6 +10,7 @@ tags:
   - name: system
   - name: auth
   - name: users
+  - name: households
 paths:
   /health:
     get:
@@ -169,6 +170,153 @@ paths:
                 example: not found
         "500":
           $ref: "#/components/responses/InternalError"
+  /api/v1/households:
+    post:
+      tags: [households]
+      summary: Create a new household
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateHouseholdRequest"
+      responses:
+        "201":
+          description: Household created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HouseholdResponse"
+        "400":
+          description: Invalid request payload or missing household name
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: household name is required
+        "401":
+          description: Missing or invalid JWT token
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: invalid token
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/v1/households/{id}/members:
+    post:
+      tags: [households]
+      summary: Invite household member by email
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InviteMemberRequest"
+      responses:
+        "201":
+          description: Member invited
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HouseholdMemberResponse"
+        "400":
+          description: Invalid request payload or household id
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: invalid household id
+        "401":
+          description: Missing or invalid JWT token
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: invalid token
+        "403":
+          description: Current user is not a household member
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: forbidden
+        "404":
+          description: Household or invited user not found
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: user not found
+        "409":
+          description: User is already a household member
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: member already exists
+        "500":
+          $ref: "#/components/responses/InternalError"
+    get:
+      tags: [households]
+      summary: List household members
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Household members
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HouseholdMembersResponse"
+        "400":
+          description: Invalid household id
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: invalid household id
+        "401":
+          description: Missing or invalid JWT token
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: invalid token
+        "403":
+          description: Current user is not a household member
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: forbidden
+        "404":
+          description: Household not found
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: household not found
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     bearerAuth:
@@ -273,3 +421,64 @@ components:
           format: date
           nullable: true
           example: "1995-10-15"
+    CreateHouseholdRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          example: Wonderland Flat
+    HouseholdResponse:
+      type: object
+      required: [id, name, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 8cd4bd93-c93f-4b39-9ebb-c787f9a6d268
+        name:
+          type: string
+          example: Wonderland Flat
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-02-24T12:34:56Z"
+    InviteMemberRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          example: rabbit@example.com
+    HouseholdMemberResponse:
+      type: object
+      required: [user_id, email, name, role, created_at]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          example: b7fc6f55-2d53-413b-b0fe-87cb16bf04c1
+        email:
+          type: string
+          format: email
+          example: rabbit@example.com
+        name:
+          type: string
+          example: White Rabbit
+        role:
+          type: string
+          example: member
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-02-24T12:40:00Z"
+    HouseholdMembersResponse:
+      type: object
+      required: [members]
+      properties:
+        members:
+          type: array
+          items:
+            $ref: "#/components/schemas/HouseholdMemberResponse"
