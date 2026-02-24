@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	domain "heimly.space/backend/internal/domain/users"
 	"heimly.space/backend/internal/httpdto"
+	authinfra "heimly.space/backend/internal/infra/auth"
 	httpmw "heimly.space/backend/internal/transport/http/middleware"
 )
 
@@ -26,7 +28,7 @@ func (h *AuthHandlers) Register(w http.ResponseWriter, r *http.Request) {
 		birthday = req.Birthday.Time()
 	}
 
-	token, err := h.Users.Register(
+	tokens, err := h.Users.Register(
 		r.Context(),
 		req.Login,
 		req.Email,
@@ -44,7 +46,10 @@ func (h *AuthHandlers) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, AuthResponse{Token: token})
+	writeJSON(w, http.StatusOK, AuthResponse{
+		AccessToken:  tokens.AccessToken,
+		RefreshToken: tokens.RefreshToken,
+	})
 }
 
 func (h *AuthHandlers) Login(w http.ResponseWriter, r *http.Request) {
@@ -53,7 +58,7 @@ func (h *AuthHandlers) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := h.Users.Login(r.Context(), req.Login, req.Password)
+	tokens, err := h.Users.Login(r.Context(), req.Login, req.Password)
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrInvalidCredentials):
@@ -64,7 +69,62 @@ func (h *AuthHandlers) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, AuthResponse{Token: token})
+	writeJSON(w, http.StatusOK, AuthResponse{
+		AccessToken:  tokens.AccessToken,
+		RefreshToken: tokens.RefreshToken,
+	})
+}
+
+func (h *AuthHandlers) Refresh(w http.ResponseWriter, r *http.Request) {
+	var req RefreshRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+
+	tokens, err := h.Users.Refresh(r.Context(), req.RefreshToken)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrInvalidRefreshToken):
+			http.Error(w, "invalid refresh token", http.StatusUnauthorized)
+		default:
+			http.Error(w, "internal error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	writeJSON(w, http.StatusOK, AuthResponse{
+		AccessToken:  tokens.AccessToken,
+		RefreshToken: tokens.RefreshToken,
+	})
+}
+
+func (h *AuthHandlers) Logout(w http.ResponseWriter, r *http.Request) {
+	var req LogoutRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if req.RefreshToken == "" {
+		http.Error(w, "refresh token is required", http.StatusBadRequest)
+		return
+	}
+
+	accessJTI, ok := parseBearerJTI(r.Header.Get("Authorization"), h.Users.JWTSecret)
+	if !ok {
+		http.Error(w, "invalid token", http.StatusUnauthorized)
+		return
+	}
+
+	if err := h.Users.Logout(r.Context(), req.RefreshToken, accessJTI); err != nil {
+		switch {
+		case errors.Is(err, domain.ErrInvalidRefreshToken):
+			http.Error(w, "invalid refresh token", http.StatusUnauthorized)
+		default:
+			http.Error(w, "internal error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *AuthHandlers) GetMe(w http.ResponseWriter, r *http.Request) {
@@ -118,4 +178,22 @@ func birthdayPtr(t time.Time) *httpdto.Date {
 	}
 	d := httpdto.Date(t)
 	return &d
+}
+
+func parseBearerJTI(header, secret string) (string, bool) {
+	if strings.TrimSpace(header) == "" {
+		return "", true
+	}
+	if !strings.HasPrefix(header, "Bearer ") {
+		return "", false
+	}
+	token := strings.TrimSpace(strings.TrimPrefix(header, "Bearer "))
+	if token == "" {
+		return "", false
+	}
+	claims, err := authinfra.ParseTokenClaims(token, secret)
+	if err != nil {
+		return "", false
+	}
+	return claims.JTI, true
 }

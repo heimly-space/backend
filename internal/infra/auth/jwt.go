@@ -12,18 +12,42 @@ import (
 var ErrInvalidToken = errors.New("invalid token")
 
 func GenerateToken(userID uuid.UUID, secret string, ttl time.Duration) (string, error) {
+	token, _, err := GenerateTokenWithJTI(userID, secret, ttl)
+	return token, err
+}
+
+func GenerateTokenWithJTI(userID uuid.UUID, secret string, ttl time.Duration) (string, string, error) {
 	now := time.Now()
+	jti := uuid.NewString()
 	claims := jwt.RegisteredClaims{
 		Subject:   userID.String(),
+		ID:        jti,
 		IssuedAt:  jwt.NewNumericDate(now),
 		ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(secret))
+	tokenStr, err := token.SignedString([]byte(secret))
+	if err != nil {
+		return "", "", err
+	}
+	return tokenStr, jti, nil
 }
 
 func ParseToken(tokenStr, secret string) (uuid.UUID, error) {
+	claims, err := ParseTokenClaims(tokenStr, secret)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return claims.UserID, nil
+}
+
+type TokenClaims struct {
+	UserID uuid.UUID
+	JTI    string
+}
+
+func ParseTokenClaims(tokenStr, secret string) (*TokenClaims, error) {
 	token, err := jwt.ParseWithClaims(
 		tokenStr,
 		&jwt.RegisteredClaims{},
@@ -35,18 +59,27 @@ func ParseToken(tokenStr, secret string) (uuid.UUID, error) {
 		},
 	)
 	if err != nil || !token.Valid {
-		return uuid.Nil, ErrInvalidToken
+		return nil, ErrInvalidToken
 	}
 
 	claims, ok := token.Claims.(*jwt.RegisteredClaims)
 	if !ok {
-		return uuid.Nil, ErrInvalidToken
+		return nil, ErrInvalidToken
 	}
 
-	id, err := uuid.Parse(claims.Subject)
+	userID, err := uuid.Parse(claims.Subject)
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("%w: subject is not a valid uuid", ErrInvalidToken)
+		return nil, fmt.Errorf("%w: subject is not a valid uuid", ErrInvalidToken)
+	}
+	if claims.ID == "" {
+		return nil, fmt.Errorf("%w: missing jti", ErrInvalidToken)
+	}
+	if _, err := uuid.Parse(claims.ID); err != nil {
+		return nil, fmt.Errorf("%w: jti is not a valid uuid", ErrInvalidToken)
 	}
 
-	return id, nil
+	return &TokenClaims{
+		UserID: userID,
+		JTI:    claims.ID,
+	}, nil
 }

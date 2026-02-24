@@ -13,7 +13,11 @@ type ctxKey string
 
 const userIDKey ctxKey = "user_id"
 
-func JWTMiddleware(secret string) func(http.Handler) http.Handler {
+type AccessTokenChecker interface {
+	IsAccessTokenActive(ctx context.Context, jti string, userID uuid.UUID) (bool, error)
+}
+
+func JWTMiddleware(secret string, checker AccessTokenChecker) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
@@ -23,13 +27,26 @@ func JWTMiddleware(secret string) func(http.Handler) http.Handler {
 			}
 
 			token := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
-			userID, err := authinfra.ParseToken(token, secret)
+			claims, err := authinfra.ParseTokenClaims(token, secret)
 			if err != nil {
 				http.Error(w, "invalid token", http.StatusUnauthorized)
 				return
 			}
+			if checker == nil {
+				http.Error(w, "internal error", http.StatusInternalServerError)
+				return
+			}
+			isActive, err := checker.IsAccessTokenActive(r.Context(), claims.JTI, claims.UserID)
+			if err != nil {
+				http.Error(w, "internal error", http.StatusInternalServerError)
+				return
+			}
+			if !isActive {
+				http.Error(w, "invalid token", http.StatusUnauthorized)
+				return
+			}
 
-			ctx := context.WithValue(r.Context(), userIDKey, userID)
+			ctx := context.WithValue(r.Context(), userIDKey, claims.UserID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

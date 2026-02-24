@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 	"gopkg.in/yaml.v3"
@@ -20,10 +21,12 @@ type Config struct {
 	ShareData bool      `yaml:"share_data"`
 	JWTSecret string    `yaml:"jwt_secret"`
 
-	Port        int    `yaml:"-"`
-	DatabaseURL string `yaml:"-"`
-	CacheURL    string `yaml:"-"`
-	StorageURL  string `yaml:"-"`
+	Port            int           `yaml:"-"`
+	DatabaseURL     string        `yaml:"-"`
+	CacheURL        string        `yaml:"-"`
+	StorageURL      string        `yaml:"-"`
+	AccessTokenTTL  time.Duration `yaml:"-"`
+	RefreshTokenTTL time.Duration `yaml:"-"`
 }
 
 func Load() *Config {
@@ -32,6 +35,8 @@ func Load() *Config {
 	cfg.DatabaseURL = loadDatabaseURL()
 	cfg.CacheURL = loadCacheURL()
 	cfg.StorageURL = loadStorageURL()
+	cfg.AccessTokenTTL = loadDurationEnv("ACCESS_TOKEN_TTL", 15*time.Minute)
+	cfg.RefreshTokenTTL = loadDurationEnv("REFRESH_TOKEN_TTL", 30*24*time.Hour)
 	return cfg
 }
 
@@ -85,6 +90,20 @@ func loadStorageURL() string {
 	}
 	log.Fatal("STORAGE_URL is required")
 	return ""
+}
+
+func loadDurationEnv(key string, fallback time.Duration) time.Duration {
+	if v := os.Getenv(key); v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			log.Fatalf("invalid %s: %q", key, v)
+		}
+		if d <= 0 {
+			log.Fatalf("%s must be greater than zero", key)
+		}
+		return d
+	}
+	return fallback
 }
 
 func loadShareData() bool {
