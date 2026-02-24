@@ -217,6 +217,7 @@ func newTestRouter(
 	}
 	householdHandlers := &householdshttp.Handlers{
 		Households: &householddomain.Service{
+			CursorSecret: secret,
 			Repo: &routerHouseholdRepoStub{
 				createFn: func(_ context.Context, _ string, _ uuid.UUID) (*householddomain.Household, error) {
 					return nil, errors.New("unexpected household create")
@@ -273,7 +274,10 @@ func newTestRouterWithHouseholdsRepo(
 		},
 	}
 	householdHandlers := &householdshttp.Handlers{
-		Households: &householddomain.Service{Repo: householdRepo},
+		Households: &householddomain.Service{
+			Repo:         householdRepo,
+			CursorSecret: secret,
+		},
 	}
 	return NewRouter(authHandlers, householdHandlers, &cfg.Config{JWTSecret: secret})
 }

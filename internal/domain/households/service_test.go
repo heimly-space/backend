@@ -201,6 +201,7 @@ func TestServiceListByUserDefaultLimitAndCursor(t *testing.T) {
 				}, nil
 			},
 		},
+		CursorSecret: "cursor-secret",
 	}).ListByUser(context.Background(), userID, "", 0)
 	if err != nil {
 		t.Fatalf("list households: %v", err)
@@ -236,6 +237,7 @@ func TestServiceListByUserPagination(t *testing.T) {
 				}, nil
 			},
 		},
+		CursorSecret: "cursor-secret",
 	}).ListByUser(context.Background(), userID, "", 2)
 	if err != nil {
 		t.Fatalf("list households: %v", err)
@@ -249,9 +251,36 @@ func TestServiceListByUserPagination(t *testing.T) {
 }
 
 func TestServiceListByUserInvalidCursor(t *testing.T) {
-	svc := &Service{Repo: &repoStub{}}
+	svc := &Service{
+		Repo:         &repoStub{},
+		CursorSecret: "cursor-secret",
+	}
 
 	_, err := svc.ListByUser(context.Background(), uuid.New(), "bad-cursor", 10)
+	if !errors.Is(err, ErrInvalidCursor) {
+		t.Fatalf("expected ErrInvalidCursor, got %v", err)
+	}
+}
+
+func TestServiceListByUserRejectsTamperedCursor(t *testing.T) {
+	userID := uuid.New()
+	now := time.Date(2026, time.February, 24, 18, 0, 0, 0, time.UTC)
+	cursor := encodeCursor(ListCursor{
+		MemberCreatedAt: now,
+		HouseholdID:     uuid.New(),
+	}, "cursor-secret")
+
+	svc := &Service{
+		Repo: &repoStub{
+			listByUserFn: func(_ context.Context, _ uuid.UUID, _ *ListCursor, _ int) ([]HouseholdWithRole, error) {
+				t.Fatal("ListByUser repo should not be called")
+				return nil, nil
+			},
+		},
+		CursorSecret: "cursor-secret",
+	}
+
+	_, err := svc.ListByUser(context.Background(), userID, cursor+"tamper", 10)
 	if !errors.Is(err, ErrInvalidCursor) {
 		t.Fatalf("expected ErrInvalidCursor, got %v", err)
 	}

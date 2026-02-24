@@ -71,6 +71,7 @@ func TestCreateHandlerSuccess(t *testing.T) {
 
 	h := &Handlers{
 		Households: &domain.Service{
+			CursorSecret: "cursor-secret",
 			Repo: &repoStub{
 				createFn: func(_ context.Context, name string, ownerID uuid.UUID) (*domain.Household, error) {
 					if ownerID != userID {
@@ -125,6 +126,7 @@ func TestInviteMemberHandlerConflict(t *testing.T) {
 
 	h := &Handlers{
 		Households: &domain.Service{
+			CursorSecret: "cursor-secret",
 			Repo: &repoStub{
 				createFn: func(_ context.Context, _ string, _ uuid.UUID) (*domain.Household, error) {
 					t.Fatal("Create should not be called")
@@ -174,6 +176,7 @@ func TestListMembersHandlerForbidden(t *testing.T) {
 
 	h := &Handlers{
 		Households: &domain.Service{
+			CursorSecret: "cursor-secret",
 			Repo: &repoStub{
 				createFn: func(_ context.Context, _ string, _ uuid.UUID) (*domain.Household, error) {
 					t.Fatal("Create should not be called")
@@ -217,6 +220,7 @@ func withRouteID(r *http.Request, id string) *http.Request {
 func TestInviteMemberHandlerInvalidHouseholdID(t *testing.T) {
 	h := &Handlers{
 		Households: &domain.Service{
+			CursorSecret: "cursor-secret",
 			Repo: &repoStub{
 				createFn: func(_ context.Context, _ string, _ uuid.UUID) (*domain.Household, error) {
 					t.Fatal("Create should not be called")
@@ -305,6 +309,7 @@ func TestListByUserHandlerSuccess(t *testing.T) {
 
 	h := &Handlers{
 		Households: &domain.Service{
+			CursorSecret: "cursor-secret",
 			Repo: &repoStub{
 				createFn: func(_ context.Context, _ string, _ uuid.UUID) (*domain.Household, error) {
 					t.Fatal("Create should not be called")
