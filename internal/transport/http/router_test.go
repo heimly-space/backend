@@ -13,8 +13,10 @@ import (
 
 	"github.com/google/uuid"
 	"heimly.space/backend/internal/cfg"
+	householddomain "heimly.space/backend/internal/domain/households"
 	domain "heimly.space/backend/internal/domain/users"
 	authinfra "heimly.space/backend/internal/infra/auth"
+	householdshttp "heimly.space/backend/internal/transport/http/households"
 	usershttp "heimly.space/backend/internal/transport/http/users"
 )
 
@@ -122,13 +124,70 @@ func (s *routerAccessStoreStub) RevokeAccessToken(ctx context.Context, jti strin
 	return s.revokeFn(ctx, jti)
 }
 
+type routerHouseholdRepoStub struct {
+	createFn           func(ctx context.Context, name string, ownerID uuid.UUID) (*householddomain.Household, error)
+	existsFn           func(ctx context.Context, householdID uuid.UUID) (bool, error)
+	isMemberFn         func(ctx context.Context, householdID, userID uuid.UUID) (bool, error)
+	addMemberByEmailFn func(ctx context.Context, householdID uuid.UUID, email string) (*householddomain.Member, error)
+	listMembersFn      func(ctx context.Context, householdID uuid.UUID) ([]householddomain.Member, error)
+}
+
+func (r *routerHouseholdRepoStub) Create(
+	ctx context.Context,
+	name string,
+	ownerID uuid.UUID,
+) (*householddomain.Household, error) {
+	if r.createFn == nil {
+		return nil, errors.New("unexpected Create household call")
+	}
+	return r.createFn(ctx, name, ownerID)
+}
+
+func (r *routerHouseholdRepoStub) Exists(ctx context.Context, householdID uuid.UUID) (bool, error) {
+	if r.existsFn == nil {
+		return false, errors.New("unexpected Exists household call")
+	}
+	return r.existsFn(ctx, householdID)
+}
+
+func (r *routerHouseholdRepoStub) IsMember(
+	ctx context.Context,
+	householdID, userID uuid.UUID,
+) (bool, error) {
+	if r.isMemberFn == nil {
+		return false, errors.New("unexpected IsMember household call")
+	}
+	return r.isMemberFn(ctx, householdID, userID)
+}
+
+func (r *routerHouseholdRepoStub) AddMemberByEmail(
+	ctx context.Context,
+	householdID uuid.UUID,
+	email string,
+) (*householddomain.Member, error) {
+	if r.addMemberByEmailFn == nil {
+		return nil, errors.New("unexpected AddMemberByEmail household call")
+	}
+	return r.addMemberByEmailFn(ctx, householdID, email)
+}
+
+func (r *routerHouseholdRepoStub) ListMembers(
+	ctx context.Context,
+	householdID uuid.UUID,
+) ([]householddomain.Member, error) {
+	if r.listMembersFn == nil {
+		return nil, errors.New("unexpected ListMembers household call")
+	}
+	return r.listMembersFn(ctx, householdID)
+}
+
 func newTestRouter(
 	secret string,
 	repo domain.Repository,
 	accessStore domain.AccessTokenStore,
 	refreshStore domain.RefreshTokenStore,
 ) nethttp.Handler {
-	handlers := &usershttp.AuthHandlers{
+	authHandlers := &usershttp.AuthHandlers{
 		Users: &domain.Service{
 			Repo:            repo,
 			AccessTokens:    accessStore,
@@ -138,7 +197,59 @@ func newTestRouter(
 			RefreshTokenTTL: 24 * time.Hour,
 		},
 	}
-	return NewRouter(handlers, &cfg.Config{JWTSecret: secret})
+	householdHandlers := &householdshttp.Handlers{
+		Households: &householddomain.Service{
+			Repo: &routerHouseholdRepoStub{
+				createFn: func(_ context.Context, _ string, _ uuid.UUID) (*householddomain.Household, error) {
+					return nil, errors.New("unexpected household create")
+				},
+				existsFn: func(_ context.Context, _ uuid.UUID) (bool, error) {
+					return false, errors.New("unexpected household exists")
+				},
+				isMemberFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
+					return false, errors.New("unexpected household is-member")
+				},
+				addMemberByEmailFn: func(_ context.Context, _ uuid.UUID, _ string) (*householddomain.Member, error) {
+					return nil, errors.New("unexpected household invite")
+				},
+				listMembersFn: func(_ context.Context, _ uuid.UUID) ([]householddomain.Member, error) {
+					return nil, errors.New("unexpected household list")
+				},
+			},
+		},
+	}
+	return NewRouter(authHandlers, householdHandlers, &cfg.Config{JWTSecret: secret})
+}
+
+func newTestRouterWithHouseholdsRepo(
+	secret string,
+	householdRepo householddomain.Repository,
+	accessStore domain.AccessTokenStore,
+) nethttp.Handler {
+	authHandlers := &usershttp.AuthHandlers{
+		Users: &domain.Service{
+			Repo: &routerRepoStub{
+				createFn: func(_ context.Context, _, _, _, _ string, _ time.Time) (uuid.UUID, error) {
+					return uuid.Nil, errors.New("unexpected auth create")
+				},
+				getByLoginFn: func(_ context.Context, _ string) (*domain.UserWithPassword, error) {
+					return nil, errors.New("unexpected auth get-by-login")
+				},
+				getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.User, error) {
+					return nil, errors.New("unexpected auth get-by-id")
+				},
+			},
+			AccessTokens:    accessStore,
+			RefreshTokens:   &routerRefreshStoreStub{},
+			JWTSecret:       secret,
+			AccessTokenTTL:  time.Hour,
+			RefreshTokenTTL: 24 * time.Hour,
+		},
+	}
+	householdHandlers := &householdshttp.Handlers{
+		Households: &householddomain.Service{Repo: householdRepo},
+	}
+	return NewRouter(authHandlers, householdHandlers, &cfg.Config{JWTSecret: secret})
 }
 
 func TestRouterHealth(t *testing.T) {
@@ -468,5 +579,95 @@ func TestRouterUsersMeRouteAuthorized(t *testing.T) {
 	}
 	if resp.ID != userID.String() {
 		t.Fatalf("unexpected profile id: %s", resp.ID)
+	}
+}
+
+func TestRouterCreateHouseholdRoute(t *testing.T) {
+	userID := uuid.New()
+	secret := "secret"
+	householdID := uuid.New()
+	createdAt := time.Date(2026, time.February, 24, 12, 0, 0, 0, time.UTC)
+	var accessToken string
+
+	router := newTestRouterWithHouseholdsRepo(
+		secret,
+		&routerHouseholdRepoStub{
+			createFn: func(_ context.Context, name string, ownerID uuid.UUID) (*householddomain.Household, error) {
+				if name != "Wonderland Flat" {
+					t.Fatalf("unexpected household name: %q", name)
+				}
+				if ownerID != userID {
+					t.Fatalf("unexpected owner id: %s", ownerID)
+				}
+				return &householddomain.Household{
+					ID:        householdID,
+					Name:      name,
+					CreatedAt: createdAt,
+				}, nil
+			},
+			existsFn: func(_ context.Context, _ uuid.UUID) (bool, error) {
+				t.Fatal("Exists should not be called")
+				return false, nil
+			},
+			isMemberFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
+				t.Fatal("IsMember should not be called")
+				return false, nil
+			},
+			addMemberByEmailFn: func(_ context.Context, _ uuid.UUID, _ string) (*householddomain.Member, error) {
+				t.Fatal("AddMemberByEmail should not be called")
+				return nil, nil
+			},
+			listMembersFn: func(_ context.Context, _ uuid.UUID) ([]householddomain.Member, error) {
+				t.Fatal("ListMembers should not be called")
+				return nil, nil
+			},
+		},
+		&routerAccessStoreStub{
+			storeFn: func(_ context.Context, _ string, _ uuid.UUID, _ time.Duration) error {
+				t.Fatal("StoreAccessToken should not be called")
+				return nil
+			},
+			isActiveFn: func(_ context.Context, jti string, gotUserID uuid.UUID) (bool, error) {
+				claims, err := authinfra.ParseTokenClaims(accessToken, secret)
+				if err != nil {
+					t.Fatalf("parse token claims: %v", err)
+				}
+				return claims.JTI == jti && gotUserID == userID, nil
+			},
+		},
+	)
+
+	token, err := authinfra.GenerateToken(userID, secret, time.Hour)
+	if err != nil {
+		t.Fatalf("generate access token: %v", err)
+	}
+	accessToken = token
+
+	req := httptest.NewRequest(
+		nethttp.MethodPost,
+		"/api/v1/households",
+		bytes.NewBufferString(`{"name":"Wonderland Flat"}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != nethttp.StatusCreated {
+		t.Fatalf("expected 201, got %d (%s)", rec.Code, rec.Body.String())
+	}
+
+	var resp householdshttp.HouseholdResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode create household response: %v", err)
+	}
+	if resp.ID != householdID.String() {
+		t.Fatalf("unexpected household id: %s", resp.ID)
+	}
+	if resp.Name != "Wonderland Flat" {
+		t.Fatalf("unexpected household name: %s", resp.Name)
+	}
+	if !resp.CreatedAt.Equal(createdAt) {
+		t.Fatalf("unexpected created_at: %s", resp.CreatedAt)
 	}
 }

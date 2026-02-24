@@ -71,3 +71,34 @@ Authorization: Bearer {{token}}
 GET {{baseUrl}}/api/v1/users/me
 Accept: application/json
 Authorization: Bearer {{token}}
+
+### Create household
+POST {{baseUrl}}/api/v1/households
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{token}}
+
+{
+  "name": "Wonderland Flat {{$timestamp}}"
+}
+
+> {%
+  if (response.status === 201 && response.body && response.body.id) {
+    client.global.set("householdId", response.body.id);
+  }
+%}
+
+### Invite member to household by email
+POST {{baseUrl}}/api/v1/households/{{householdId}}/members
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{token}}
+
+{
+  "email": "rabbit@example.com"
+}
+
+### List household members
+GET {{baseUrl}}/api/v1/households/{{householdId}}/members
+Accept: application/json
+Authorization: Bearer {{token}}
