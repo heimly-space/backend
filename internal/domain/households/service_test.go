@@ -14,7 +14,7 @@ type repoStub struct {
 	existsFn           func(ctx context.Context, householdID uuid.UUID) (bool, error)
 	isMemberFn         func(ctx context.Context, householdID, userID uuid.UUID) (bool, error)
 	addMemberByEmailFn func(ctx context.Context, householdID uuid.UUID, email string) (*Member, error)
-	listMembersFn      func(ctx context.Context, householdID uuid.UUID) ([]Member, error)
+	listMembersFn      func(ctx context.Context, householdID uuid.UUID, cursor *MembersListCursor, limit int) ([]Member, error)
 	listByUserFn       func(ctx context.Context, userID uuid.UUID, cursor *ListCursor, limit int) ([]HouseholdWithRole, error)
 }
 
@@ -46,11 +46,16 @@ func (r *repoStub) AddMemberByEmail(ctx context.Context, householdID uuid.UUID, 
 	return r.addMemberByEmailFn(ctx, householdID, email)
 }
 
-func (r *repoStub) ListMembers(ctx context.Context, householdID uuid.UUID) ([]Member, error) {
+func (r *repoStub) ListMembers(
+	ctx context.Context,
+	householdID uuid.UUID,
+	cursor *MembersListCursor,
+	limit int,
+) ([]Member, error) {
 	if r.listMembersFn == nil {
 		return nil, errors.New("unexpected ListMembers call")
 	}
-	return r.listMembersFn(ctx, householdID)
+	return r.listMembersFn(ctx, householdID, cursor, limit)
 }
 
 func (r *repoStub) ListByUser(
@@ -170,11 +175,114 @@ func TestServiceListMembersNotFound(t *testing.T) {
 				return false, nil
 			},
 		},
+		CursorSecret: "cursor-secret",
 	}
 
-	_, err := svc.ListMembers(context.Background(), householdID, actorID)
+	_, err := svc.ListMembers(context.Background(), householdID, actorID, "", 10)
 	if !errors.Is(err, ErrHouseholdNotFound) {
 		t.Fatalf("expected ErrHouseholdNotFound, got %v", err)
+	}
+}
+
+func TestServiceListMembersPagination(t *testing.T) {
+	householdID := uuid.New()
+	actorID := uuid.New()
+	u1 := uuid.New()
+	u2 := uuid.New()
+	u3 := uuid.New()
+	now := time.Date(2026, time.February, 24, 18, 0, 0, 0, time.UTC)
+
+	result, err := (&Service{
+		Repo: &repoStub{
+			existsFn:   func(_ context.Context, _ uuid.UUID) (bool, error) { return true, nil },
+			isMemberFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) { return true, nil },
+			listMembersFn: func(_ context.Context, _ uuid.UUID, cursor *MembersListCursor, limit int) ([]Member, error) {
+				if cursor != nil {
+					t.Fatalf("expected nil cursor, got %+v", cursor)
+				}
+				if limit != 3 {
+					t.Fatalf("unexpected limit: %d", limit)
+				}
+				return []Member{
+					{UserID: u1, CreatedAt: now},
+					{UserID: u2, CreatedAt: now.Add(-time.Minute)},
+					{UserID: u3, CreatedAt: now.Add(-2 * time.Minute)},
+				}, nil
+			},
+		},
+		CursorSecret: "cursor-secret",
+	}).ListMembers(context.Background(), householdID, actorID, "", 2)
+	if err != nil {
+		t.Fatalf("list members: %v", err)
+	}
+	if len(result.Members) != 2 {
+		t.Fatalf("expected 2 members, got %d", len(result.Members))
+	}
+	if result.NextCursor == "" {
+		t.Fatal("expected next cursor")
+	}
+}
+
+func TestServiceListMembersWithCursor(t *testing.T) {
+	householdID := uuid.New()
+	actorID := uuid.New()
+	cursorUserID := uuid.New()
+	cursorTime := time.Date(2026, time.February, 24, 17, 30, 0, 0, time.UTC)
+	cursorRaw := encodeMembersCursor(MembersListCursor{
+		MemberCreatedAt: cursorTime,
+		UserID:          cursorUserID,
+	}, "cursor-secret")
+
+	result, err := (&Service{
+		Repo: &repoStub{
+			existsFn:   func(_ context.Context, _ uuid.UUID) (bool, error) { return true, nil },
+			isMemberFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) { return true, nil },
+			listMembersFn: func(_ context.Context, _ uuid.UUID, cursor *MembersListCursor, limit int) ([]Member, error) {
+				if cursor == nil {
+					t.Fatal("expected parsed cursor")
+				}
+				if !cursor.MemberCreatedAt.Equal(cursorTime) {
+					t.Fatalf("unexpected cursor time: %s", cursor.MemberCreatedAt)
+				}
+				if cursor.UserID != cursorUserID {
+					t.Fatalf("unexpected cursor user id: %s", cursor.UserID)
+				}
+				if limit != 11 {
+					t.Fatalf("unexpected limit: %d", limit)
+				}
+				return []Member{
+					{UserID: uuid.New(), CreatedAt: cursorTime.Add(-time.Minute)},
+				}, nil
+			},
+		},
+		CursorSecret: "cursor-secret",
+	}).ListMembers(context.Background(), householdID, actorID, cursorRaw, 10)
+	if err != nil {
+		t.Fatalf("list members with cursor: %v", err)
+	}
+	if len(result.Members) != 1 {
+		t.Fatalf("expected 1 member, got %d", len(result.Members))
+	}
+	if result.NextCursor != "" {
+		t.Fatalf("unexpected next cursor: %q", result.NextCursor)
+	}
+}
+
+func TestServiceListMembersInvalidCursor(t *testing.T) {
+	svc := &Service{
+		Repo: &repoStub{
+			existsFn:   func(_ context.Context, _ uuid.UUID) (bool, error) { return true, nil },
+			isMemberFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) { return true, nil },
+			listMembersFn: func(_ context.Context, _ uuid.UUID, _ *MembersListCursor, _ int) ([]Member, error) {
+				t.Fatal("ListMembers repo should not be called for invalid cursor")
+				return nil, nil
+			},
+		},
+		CursorSecret: "cursor-secret",
+	}
+	_, err := svc.ListMembers(context.Background(), uuid.New(), uuid.New(), "bad-cursor", 10)
+	if !errors.Is(err, ErrInvalidCursor) {
+		t.Fatalf("expected ErrInvalidCursor, got %v", err)
 	}
 }
 
@@ -251,11 +359,7 @@ func TestServiceListByUserPagination(t *testing.T) {
 }
 
 func TestServiceListByUserInvalidCursor(t *testing.T) {
-	svc := &Service{
-		Repo:         &repoStub{},
-		CursorSecret: "cursor-secret",
-	}
-
+	svc := &Service{Repo: &repoStub{}, CursorSecret: "cursor-secret"}
 	_, err := svc.ListByUser(context.Background(), uuid.New(), "bad-cursor", 10)
 	if !errors.Is(err, ErrInvalidCursor) {
 		t.Fatalf("expected ErrInvalidCursor, got %v", err)
@@ -265,10 +369,7 @@ func TestServiceListByUserInvalidCursor(t *testing.T) {
 func TestServiceListByUserRejectsTamperedCursor(t *testing.T) {
 	userID := uuid.New()
 	now := time.Date(2026, time.February, 24, 18, 0, 0, 0, time.UTC)
-	cursor := encodeCursor(ListCursor{
-		MemberCreatedAt: now,
-		HouseholdID:     uuid.New(),
-	}, "cursor-secret")
+	cursor := encodeHouseholdsCursor(ListCursor{MemberCreatedAt: now, HouseholdID: uuid.New()}, "cursor-secret")
 
 	svc := &Service{
 		Repo: &repoStub{

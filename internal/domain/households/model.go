@@ -32,3 +32,8 @@ type ListCursor struct {
 	MemberCreatedAt time.Time
 	HouseholdID     uuid.UUID
 }
+
+type MembersListCursor struct {
+	MemberCreatedAt time.Time
+	UserID          uuid.UUID
+}

@@ -37,5 +37,6 @@ type MemberResponse struct {
 }
 
 type MembersResponse struct {
-	Members []MemberResponse `json:"members"`
+	Members    []MemberResponse `json:"members"`
+	NextCursor string           `json:"next_cursor,omitempty"`
 }

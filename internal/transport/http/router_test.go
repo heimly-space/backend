@@ -129,8 +129,13 @@ type routerHouseholdRepoStub struct {
 	existsFn           func(ctx context.Context, householdID uuid.UUID) (bool, error)
 	isMemberFn         func(ctx context.Context, householdID, userID uuid.UUID) (bool, error)
 	addMemberByEmailFn func(ctx context.Context, householdID uuid.UUID, email string) (*householddomain.Member, error)
-	listMembersFn      func(ctx context.Context, householdID uuid.UUID) ([]householddomain.Member, error)
-	listByUserFn       func(
+	listMembersFn      func(
+		ctx context.Context,
+		householdID uuid.UUID,
+		cursor *householddomain.MembersListCursor,
+		limit int,
+	) ([]householddomain.Member, error)
+	listByUserFn func(
 		ctx context.Context,
 		userID uuid.UUID,
 		cursor *householddomain.ListCursor,
@@ -180,11 +185,13 @@ func (r *routerHouseholdRepoStub) AddMemberByEmail(
 func (r *routerHouseholdRepoStub) ListMembers(
 	ctx context.Context,
 	householdID uuid.UUID,
+	cursor *householddomain.MembersListCursor,
+	limit int,
 ) ([]householddomain.Member, error) {
 	if r.listMembersFn == nil {
 		return nil, errors.New("unexpected ListMembers household call")
 	}
-	return r.listMembersFn(ctx, householdID)
+	return r.listMembersFn(ctx, householdID, cursor, limit)
 }
 
 func (r *routerHouseholdRepoStub) ListByUser(
@@ -231,7 +238,12 @@ func newTestRouter(
 				addMemberByEmailFn: func(_ context.Context, _ uuid.UUID, _ string) (*householddomain.Member, error) {
 					return nil, errors.New("unexpected household invite")
 				},
-				listMembersFn: func(_ context.Context, _ uuid.UUID) ([]householddomain.Member, error) {
+				listMembersFn: func(
+					_ context.Context,
+					_ uuid.UUID,
+					_ *householddomain.MembersListCursor,
+					_ int,
+				) ([]householddomain.Member, error) {
 					return nil, errors.New("unexpected household list")
 				},
 				listByUserFn: func(
@@ -647,7 +659,12 @@ func TestRouterCreateHouseholdRoute(t *testing.T) {
 				t.Fatal("AddMemberByEmail should not be called")
 				return nil, nil
 			},
-			listMembersFn: func(_ context.Context, _ uuid.UUID) ([]householddomain.Member, error) {
+			listMembersFn: func(
+				_ context.Context,
+				_ uuid.UUID,
+				_ *householddomain.MembersListCursor,
+				_ int,
+			) ([]householddomain.Member, error) {
 				t.Fatal("ListMembers should not be called")
 				return nil, nil
 			},
@@ -728,7 +745,12 @@ func TestRouterListHouseholdsRoute(t *testing.T) {
 				t.Fatal("AddMemberByEmail should not be called")
 				return nil, nil
 			},
-			listMembersFn: func(_ context.Context, _ uuid.UUID) ([]householddomain.Member, error) {
+			listMembersFn: func(
+				_ context.Context,
+				_ uuid.UUID,
+				_ *householddomain.MembersListCursor,
+				_ int,
+			) ([]householddomain.Member, error) {
 				t.Fatal("ListMembers should not be called")
 				return nil, nil
 			},

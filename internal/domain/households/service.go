@@ -29,6 +29,11 @@ type ListResult struct {
 	NextCursor string
 }
 
+type ListMembersResult struct {
+	Members    []Member
+	NextCursor string
+}
+
 func (s *Service) Create(ctx context.Context, ownerID uuid.UUID, name string) (*Household, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
@@ -61,7 +66,9 @@ func (s *Service) InviteMember(
 func (s *Service) ListMembers(
 	ctx context.Context,
 	householdID, actorUserID uuid.UUID,
-) ([]Member, error) {
+	cursorRaw string,
+	limit int,
+) (*ListMembersResult, error) {
 	allowed, err := s.canAccessHousehold(ctx, householdID, actorUserID)
 	if err != nil {
 		return nil, err
@@ -69,7 +76,32 @@ func (s *Service) ListMembers(
 	if !allowed {
 		return nil, ErrForbidden
 	}
-	return s.Repo.ListMembers(ctx, householdID)
+	if err := s.ensureCursorSecretConfigured(); err != nil {
+		return nil, err
+	}
+
+	listLimit := normalizeLimit(limit)
+	cursor, err := parseMembersCursor(cursorRaw, s.CursorSecret)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidCursor, err)
+	}
+
+	rows, err := s.Repo.ListMembers(ctx, householdID, cursor, listLimit+1)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &ListMembersResult{Members: rows}
+	if len(rows) > listLimit {
+		last := rows[listLimit-1]
+		result.Members = rows[:listLimit]
+		result.NextCursor = encodeMembersCursor(MembersListCursor{
+			MemberCreatedAt: last.CreatedAt,
+			UserID:          last.UserID,
+		}, s.CursorSecret)
+	}
+
+	return result, nil
 }
 
 func (s *Service) ListByUser(
@@ -78,12 +110,12 @@ func (s *Service) ListByUser(
 	cursorRaw string,
 	limit int,
 ) (*ListResult, error) {
-	if strings.TrimSpace(s.CursorSecret) == "" {
-		return nil, errors.New("cursor secret is not configured")
+	if err := s.ensureCursorSecretConfigured(); err != nil {
+		return nil, err
 	}
 
 	listLimit := normalizeLimit(limit)
-	cursor, err := parseCursor(cursorRaw, s.CursorSecret)
+	cursor, err := parseHouseholdsCursor(cursorRaw, s.CursorSecret)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidCursor, err)
 	}
@@ -93,20 +125,14 @@ func (s *Service) ListByUser(
 		return nil, err
 	}
 
-	result := &ListResult{
-		Items:      rows,
-		NextCursor: "",
-	}
+	result := &ListResult{Items: rows}
 	if len(rows) > listLimit {
 		last := rows[listLimit-1]
 		result.Items = rows[:listLimit]
-		result.NextCursor = encodeCursor(
-			ListCursor{
-				MemberCreatedAt: last.MemberCreatedAt,
-				HouseholdID:     last.ID,
-			},
-			s.CursorSecret,
-		)
+		result.NextCursor = encodeHouseholdsCursor(ListCursor{
+			MemberCreatedAt: last.MemberCreatedAt,
+			HouseholdID:     last.ID,
+		}, s.CursorSecret)
 	}
 
 	return result, nil
@@ -131,6 +157,13 @@ func (s *Service) canAccessHousehold(
 	return isMember, nil
 }
 
+func (s *Service) ensureCursorSecretConfigured() error {
+	if strings.TrimSpace(s.CursorSecret) == "" {
+		return errors.New("cursor secret is not configured")
+	}
+	return nil
+}
+
 func normalizeLimit(limit int) int {
 	if limit <= 0 {
 		return defaultListLimit
@@ -141,44 +174,86 @@ func normalizeLimit(limit int) int {
 	return limit
 }
 
-func parseCursor(raw, secret string) (*ListCursor, error) {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return nil, nil
-	}
-
-	decoded, err := base64.RawURLEncoding.DecodeString(raw)
+func parseHouseholdsCursor(raw, secret string) (*ListCursor, error) {
+	t, id, err := parseTimeUUIDCursor(raw, secret)
 	if err != nil {
 		return nil, err
+	}
+	if id == uuid.Nil {
+		return nil, nil
+	}
+	return &ListCursor{MemberCreatedAt: t, HouseholdID: id}, nil
+}
+
+func encodeHouseholdsCursor(cursor ListCursor, secret string) string {
+	return encodeTimeUUIDCursor(cursor.MemberCreatedAt, cursor.HouseholdID, secret)
+}
+
+func parseMembersCursor(raw, secret string) (*MembersListCursor, error) {
+	t, id, err := parseTimeUUIDCursor(raw, secret)
+	if err != nil {
+		return nil, err
+	}
+	if id == uuid.Nil {
+		return nil, nil
+	}
+	return &MembersListCursor{MemberCreatedAt: t, UserID: id}, nil
+}
+
+func encodeMembersCursor(cursor MembersListCursor, secret string) string {
+	return encodeTimeUUIDCursor(cursor.MemberCreatedAt, cursor.UserID, secret)
+}
+
+func parseTimeUUIDCursor(raw, secret string) (time.Time, uuid.UUID, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return time.Time{}, uuid.Nil, nil
+	}
+
+	first, second, err := parseSignedCursor(raw, secret)
+	if err != nil {
+		return time.Time{}, uuid.Nil, err
+	}
+
+	ns, err := strconv.ParseInt(first, 10, 64)
+	if err != nil {
+		return time.Time{}, uuid.Nil, err
+	}
+	parsedID, err := uuid.Parse(second)
+	if err != nil {
+		return time.Time{}, uuid.Nil, err
+	}
+
+	return time.Unix(0, ns).UTC(), parsedID, nil
+}
+
+func encodeTimeUUIDCursor(t time.Time, id uuid.UUID, secret string) string {
+	first := strconv.FormatInt(t.UTC().UnixNano(), 10)
+	second := id.String()
+	return encodeSignedCursor(first, second, secret)
+}
+
+func parseSignedCursor(raw, secret string) (string, string, error) {
+	decoded, err := base64.RawURLEncoding.DecodeString(raw)
+	if err != nil {
+		return "", "", err
 	}
 
 	parts := strings.SplitN(string(decoded), "|", 3)
 	if len(parts) != 3 {
-		return nil, fmt.Errorf("expected 3 parts")
-	}
-
-	ns, err := strconv.ParseInt(parts[0], 10, 64)
-	if err != nil {
-		return nil, err
-	}
-	householdID, err := uuid.Parse(parts[1])
-	if err != nil {
-		return nil, err
+		return "", "", fmt.Errorf("expected 3 parts")
 	}
 
 	payload := parts[0] + "|" + parts[1]
 	if !validateCursorSignature(payload, parts[2], secret) {
-		return nil, fmt.Errorf("invalid signature")
+		return "", "", fmt.Errorf("invalid signature")
 	}
 
-	return &ListCursor{
-		MemberCreatedAt: time.Unix(0, ns).UTC(),
-		HouseholdID:     householdID,
-	}, nil
+	return parts[0], parts[1], nil
 }
 
-func encodeCursor(cursor ListCursor, secret string) string {
-	payload := fmt.Sprintf("%d|%s", cursor.MemberCreatedAt.UTC().UnixNano(), cursor.HouseholdID.String())
+func encodeSignedCursor(first, second, secret string) string {
+	payload := first + "|" + second
 	signature := signCursorPayload(payload, secret)
 	return base64.RawURLEncoding.EncodeToString([]byte(payload + "|" + signature))
 }
