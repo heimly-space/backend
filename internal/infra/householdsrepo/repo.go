@@ -125,28 +125,108 @@ func (r *Repo) AddMemberByEmail(
 	return member, nil
 }
 
-func (r *Repo) ListMembers(ctx context.Context, householdID uuid.UUID) ([]domain.Member, error) {
+func (r *Repo) ListMembers(
+	ctx context.Context,
+	householdID uuid.UUID,
+	cursor *domain.MembersListCursor,
+	limit int,
+) ([]domain.Member, error) {
 	const q = `
 		SELECT hm.user_id, u.email, u.name, hm.role, hm.created_at
 		FROM household_members hm
 		JOIN users u ON u.id = hm.user_id
 		WHERE hm.household_id = $1
-		ORDER BY hm.created_at ASC
+		  AND (
+		    $2::timestamptz IS NULL
+		    OR hm.created_at < $2
+		    OR (hm.created_at = $2 AND hm.user_id < $3)
+		  )
+		ORDER BY hm.created_at DESC, hm.user_id DESC
+		LIMIT $4
 	`
 
-	rows, err := r.DB.Query(ctx, q, householdID)
+	var cursorCreatedAt any
+	var cursorUserID any
+	if cursor != nil {
+		cursorCreatedAt = cursor.MemberCreatedAt
+		cursorUserID = cursor.UserID
+	}
+
+	rows, err := r.DB.Query(ctx, q, householdID, cursorCreatedAt, cursorUserID, limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	result := make([]domain.Member, 0)
+	resultCap := limit
+	if resultCap < 0 {
+		resultCap = 0
+	}
+	result := make([]domain.Member, 0, resultCap)
 	for rows.Next() {
 		var m domain.Member
 		if err := rows.Scan(&m.UserID, &m.Email, &m.Name, &m.Role, &m.CreatedAt); err != nil {
 			return nil, err
 		}
 		result = append(result, m)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (r *Repo) ListByUser(
+	ctx context.Context,
+	userID uuid.UUID,
+	cursor *domain.ListCursor,
+	limit int,
+) ([]domain.HouseholdWithRole, error) {
+	const q = `
+		SELECT h.id, h.name, hm.role, h.created_at, hm.created_at
+		FROM household_members hm
+		JOIN households h ON h.id = hm.household_id
+		WHERE hm.user_id = $1
+		  AND (
+		    $2::timestamptz IS NULL
+		    OR hm.created_at < $2
+		    OR (hm.created_at = $2 AND hm.household_id < $3)
+		  )
+		ORDER BY hm.created_at DESC, hm.household_id DESC
+		LIMIT $4
+	`
+
+	var cursorCreatedAt any
+	var cursorHouseholdID any
+	if cursor != nil {
+		cursorCreatedAt = cursor.MemberCreatedAt
+		cursorHouseholdID = cursor.HouseholdID
+	}
+
+	rows, err := r.DB.Query(ctx, q, userID, cursorCreatedAt, cursorHouseholdID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	resultCap := limit
+	if resultCap < 0 {
+		resultCap = 0
+	}
+	result := make([]domain.HouseholdWithRole, 0, resultCap)
+	for rows.Next() {
+		var item domain.HouseholdWithRole
+		if err := rows.Scan(
+			&item.ID,
+			&item.Name,
+			&item.Role,
+			&item.CreatedAt,
+			&item.MemberCreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, item)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -13,6 +14,45 @@ import (
 
 type Handlers struct {
 	Households *domain.Service
+}
+
+func (h *Handlers) ListByUser(w http.ResponseWriter, r *http.Request) {
+	userID, ok := httpmw.UserIDFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	limit, ok := parseLimitQuery(w, r)
+	if !ok {
+		return
+	}
+
+	result, err := h.Households.ListByUser(r.Context(), userID, r.URL.Query().Get("cursor"), limit)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrInvalidCursor):
+			http.Error(w, "invalid cursor", http.StatusBadRequest)
+		default:
+			http.Error(w, "internal error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	resp := HouseholdsResponse{
+		Items:      make([]HouseholdWithRoleResponse, 0, len(result.Items)),
+		NextCursor: result.NextCursor,
+	}
+	for _, item := range result.Items {
+		resp.Items = append(resp.Items, HouseholdWithRoleResponse{
+			ID:        item.ID.String(),
+			Name:      item.Name,
+			Role:      item.Role,
+			CreatedAt: item.CreatedAt,
+		})
+	}
+
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func (h *Handlers) Create(w http.ResponseWriter, r *http.Request) {
@@ -100,21 +140,37 @@ func (h *Handlers) ListMembers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	members, err := h.Households.ListMembers(r.Context(), householdID, userID)
+	limit, ok := parseLimitQuery(w, r)
+	if !ok {
+		return
+	}
+
+	result, err := h.Households.ListMembers(
+		r.Context(),
+		householdID,
+		userID,
+		r.URL.Query().Get("cursor"),
+		limit,
+	)
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrHouseholdNotFound):
 			http.Error(w, "household not found", http.StatusNotFound)
 		case errors.Is(err, domain.ErrForbidden):
 			http.Error(w, "forbidden", http.StatusForbidden)
+		case errors.Is(err, domain.ErrInvalidCursor):
+			http.Error(w, "invalid cursor", http.StatusBadRequest)
 		default:
 			http.Error(w, "internal error", http.StatusInternalServerError)
 		}
 		return
 	}
 
-	resp := MembersResponse{Members: make([]MemberResponse, 0, len(members))}
-	for _, m := range members {
+	resp := MembersResponse{
+		Members:    make([]MemberResponse, 0, len(result.Members)),
+		NextCursor: result.NextCursor,
+	}
+	for _, m := range result.Members {
 		resp.Members = append(resp.Members, MemberResponse{
 			UserID:    m.UserID.String(),
 			Email:     m.Email,
@@ -125,6 +181,19 @@ func (h *Handlers) ListMembers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, resp)
+}
+
+func parseLimitQuery(w http.ResponseWriter, r *http.Request) (int, bool) {
+	limit := 0
+	if rawLimit := r.URL.Query().Get("limit"); rawLimit != "" {
+		parsed, err := strconv.Atoi(rawLimit)
+		if err != nil || parsed <= 0 {
+			http.Error(w, "invalid limit", http.StatusBadRequest)
+			return 0, false
+		}
+		limit = parsed
+	}
+	return limit, true
 }
 
 func parseHouseholdID(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
@@ -148,9 +217,14 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
+	body, err := json.Marshal(v)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(v); err != nil {
-		http.Error(w, "internal error", http.StatusInternalServerError)
-	}
+	_, _ = w.Write(body)
+	_, _ = w.Write([]byte("\n"))
 }

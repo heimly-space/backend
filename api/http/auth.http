@@ -3,6 +3,8 @@
 @email = alice{{$timestamp}}@example.com
 @name = Alice Liddell
 @password = cheshire-smile-123
+@householdsCursor =
+@membersCursor =
 
 ### Register (stores access + refresh tokens)
 POST {{baseUrl}}/api/v1/auth/register
@@ -88,6 +90,17 @@ Authorization: Bearer {{token}}
   }
 %}
 
+### List my households (cursor pagination)
+GET {{baseUrl}}/api/v1/households?limit=20&cursor={{householdsCursor}}
+Accept: application/json
+Authorization: Bearer {{token}}
+
+> {%
+  if (response.status === 200 && response.body) {
+    client.global.set("householdsCursor", response.body.next_cursor || "");
+  }
+%}
+
 ### Invite member to household by email
 POST {{baseUrl}}/api/v1/households/{{householdId}}/members
 Content-Type: application/json
@@ -98,7 +111,13 @@ Authorization: Bearer {{token}}
   "email": "rabbit@example.com"
 }
 
-### List household members
-GET {{baseUrl}}/api/v1/households/{{householdId}}/members
+### List household members (cursor pagination)
+GET {{baseUrl}}/api/v1/households/{{householdId}}/members?limit=20&cursor={{membersCursor}}
 Accept: application/json
 Authorization: Bearer {{token}}
+
+> {%
+  if (response.status === 200 && response.body) {
+    client.global.set("membersCursor", response.body.next_cursor || "");
+  }
+%}

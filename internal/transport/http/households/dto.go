@@ -16,6 +16,18 @@ type HouseholdResponse struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+type HouseholdWithRoleResponse struct {
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	Role      string    `json:"role"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type HouseholdsResponse struct {
+	Items      []HouseholdWithRoleResponse `json:"items"`
+	NextCursor string                      `json:"next_cursor,omitempty"`
+}
+
 type MemberResponse struct {
 	UserID    string    `json:"user_id"`
 	Email     string    `json:"email"`
@@ -25,5 +37,6 @@ type MemberResponse struct {
 }
 
 type MembersResponse struct {
-	Members []MemberResponse `json:"members"`
+	Members    []MemberResponse `json:"members"`
+	NextCursor string           `json:"next_cursor,omitempty"`
 }

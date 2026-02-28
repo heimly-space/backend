@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS idx_household_members_user_created_household;
