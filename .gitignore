@@ -43,3 +43,4 @@ go.work.sum
 .env.dev
 .DS_Store
 .heimly
+.gocache
