@@ -34,7 +34,7 @@ services:
     env_file:
       - .env
     volumes:
-      - heimly_db:/var/lib/postgresql/data
+      - heimly_db:/var/lib/postgresql
     ports:
       - "${POSTGRES_PORT}:5432"
     networks:

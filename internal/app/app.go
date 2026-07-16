@@ -9,12 +9,15 @@ import (
 	"heimly.space/backend/internal/cfg"
 	db "heimly.space/backend/internal/db"
 	"heimly.space/backend/internal/domain/households"
+	"heimly.space/backend/internal/domain/tasks"
 	"heimly.space/backend/internal/domain/users"
 	"heimly.space/backend/internal/infra/householdsrepo"
 	"heimly.space/backend/internal/infra/refreshtokens"
+	"heimly.space/backend/internal/infra/tasksrepo"
 	"heimly.space/backend/internal/infra/usersrepo"
 	httpx "heimly.space/backend/internal/transport/http"
 	householdshttp "heimly.space/backend/internal/transport/http/households"
+	taskhttp "heimly.space/backend/internal/transport/http/tasks"
 	usershttp "heimly.space/backend/internal/transport/http/users"
 )
 
@@ -36,6 +39,11 @@ func New(cfg *cfg.Config) *App {
 		Repo:         householdRepo,
 		CursorSecret: cfg.JWTSecret,
 	}
+	taskRepo := &tasksrepo.Repo{DB: pool}
+	taskService := &tasks.Service{
+		Repo:         taskRepo,
+		CursorSecret: cfg.JWTSecret,
+	}
 
 	userRepo := &usersrepo.Repo{DB: pool}
 	userService := &users.Service{
@@ -48,7 +56,8 @@ func New(cfg *cfg.Config) *App {
 	}
 	authHandlers := &usershttp.AuthHandlers{Users: userService}
 	householdHandlers := &householdshttp.Handlers{Households: householdService}
-	router := httpx.NewRouter(authHandlers, householdHandlers, cfg)
+	taskHandlers := &taskhttp.Handlers{Tasks: taskService}
+	router := httpx.NewRouter(authHandlers, householdHandlers, taskHandlers, cfg)
 
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.Port),

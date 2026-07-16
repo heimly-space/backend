@@ -3,6 +3,7 @@ package users
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -161,6 +162,13 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
 		http.Error(w, "invalid request", http.StatusBadRequest)
 		return false
 	}
+
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return false
+	}
+
 	return true
 }
 

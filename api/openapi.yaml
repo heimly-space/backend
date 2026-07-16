@@ -374,6 +374,249 @@ paths:
                 example: household not found
         "500":
           $ref: "#/components/responses/InternalError"
+  /api/v1/households/{id}/tasks:
+    post:
+      tags: [tasks]
+      summary: Create a task in household
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTaskRequest"
+      responses:
+        "201":
+          description: Task created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskResponse"
+        "400":
+          description: Invalid request payload or task fields
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: task title is required
+        "401":
+          description: Missing or invalid JWT token
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: invalid token
+        "403":
+          description: Current user is not a household member
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: forbidden
+        "404":
+          description: Household not found
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: household not found
+        "500":
+          $ref: "#/components/responses/InternalError"
+    get:
+      tags: [tasks]
+      summary: List household tasks
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: status
+          required: false
+          schema:
+            type: string
+            enum: [pending, in_progress, done]
+        - in: query
+          name: assignee
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: cursor
+          required: false
+          schema:
+            type: string
+          description: Opaque cursor returned by previous page
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Household tasks
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TasksResponse"
+        "400":
+          description: Invalid household id or filters
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: invalid assignee
+        "401":
+          description: Missing or invalid JWT token
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: invalid token
+        "403":
+          description: Current user is not a household member
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: forbidden
+        "404":
+          description: Household not found
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: household not found
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /api/v1/tasks/{id}:
+    patch:
+      tags: [tasks]
+      summary: Partially update task
+      description: Updates only the fields present in the JSON object. Omitted fields are left unchanged.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchTaskRequest"
+            examples:
+              statusOnly:
+                summary: Mark task as done
+                value:
+                  status: done
+              clearDueDateAndAssignees:
+                summary: Clear due date and assignees
+                value:
+                  due_at: null
+                  assignee_ids: []
+      responses:
+        "200":
+          description: Task updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskResponse"
+        "400":
+          description: Invalid task id or patch payload
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: empty task patch
+        "401":
+          description: Missing or invalid JWT token
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: invalid token
+        "403":
+          description: Current user is not allowed to update task
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: forbidden
+        "404":
+          description: Task not found
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: task not found
+        "500":
+          $ref: "#/components/responses/InternalError"
+    delete:
+      tags: [tasks]
+      summary: Delete task
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Task deleted
+        "400":
+          description: Invalid task id
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: invalid task id
+        "401":
+          description: Missing or invalid JWT token
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: invalid token
+        "403":
+          description: Current user is not allowed to delete task
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: forbidden
+        "404":
+          description: Task not found
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: task not found
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     bearerAuth:
@@ -573,3 +816,117 @@ components:
           type: string
           nullable: true
           example: MTcwODc4ODQwMDAwMDAwMDAwfGI3ZmM2ZjU1LTJkNTMtNDEzYi1iMGZlLTg3Y2IxNmJmMDRjMQ
+    CreateTaskRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          example: Paint the white roses
+        description:
+          type: string
+          nullable: true
+          example: Bring red paint before the Queen arrives
+        status:
+          type: string
+          enum: [pending, in_progress, done]
+          example: pending
+        due_at:
+          type: string
+          format: date
+          nullable: true
+          example: "2026-03-01"
+        assignee_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          nullable: true
+          example: [b7fc6f55-2d53-413b-b0fe-87cb16bf04c1]
+    PatchTaskRequest:
+      type: object
+      description: Partial task update. Include only fields that should change. Null due_at clears the due date; null or empty assignee_ids clears assignees.
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          minLength: 1
+          example: Prepare tea for the Mad Hatter
+        description:
+          type: string
+          nullable: true
+          description: Null is accepted and stored as an empty description.
+          example: Set five cups and find clean spoons
+        status:
+          type: string
+          enum: [pending, in_progress, done]
+          example: done
+        due_at:
+          type: string
+          format: date
+          nullable: true
+          description: Null clears the due date.
+          example: "2026-03-03"
+        assignee_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          nullable: true
+          description: Null or an empty array clears assignees.
+          example: [b7fc6f55-2d53-413b-b0fe-87cb16bf04c1]
+    TaskResponse:
+      type: object
+      required: [id, household_id, title, status, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        household_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          example: Paint the white roses
+        description:
+          type: string
+          nullable: true
+          example: Bring red paint before the Queen arrives
+        status:
+          type: string
+          enum: [pending, in_progress, done]
+          example: pending
+        due_at:
+          type: string
+          format: date
+          nullable: true
+          example: "2026-03-01"
+        assignee_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          nullable: true
+          example: [b7fc6f55-2d53-413b-b0fe-87cb16bf04c1]
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-02-28T12:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2026-02-28T12:00:00Z"
+    TasksResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/TaskResponse"
+        next_cursor:
+          type: string
+          nullable: true
+          example: MTc0MDczNDQwMDAwMDAwMDAwfDNjNWNiNWU2LWNkOTAtNGIzNy1hMGJlLTlmODVmNzdmNGYzMQ

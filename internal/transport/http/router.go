@@ -9,12 +9,14 @@ import (
 	"heimly.space/backend/internal/cfg"
 	householdhttp "heimly.space/backend/internal/transport/http/households"
 	httpmw "heimly.space/backend/internal/transport/http/middleware"
+	taskhttp "heimly.space/backend/internal/transport/http/tasks"
 	"heimly.space/backend/internal/transport/http/users"
 )
 
 func NewRouter(
 	authHandlers *users.AuthHandlers,
 	householdHandlers *householdhttp.Handlers,
+	taskHandlers *taskhttp.Handlers,
 	cfg *cfg.Config,
 ) chi.Router {
 	r := chi.NewRouter()
@@ -49,6 +51,13 @@ func NewRouter(
 				r.Post("/", householdHandlers.Create)
 				r.Post("/{id}/members", householdHandlers.InviteMember)
 				r.Get("/{id}/members", householdHandlers.ListMembers)
+				r.Post("/{id}/tasks", taskHandlers.Create)
+				r.Get("/{id}/tasks", taskHandlers.ListByHousehold)
+			})
+
+			r.Route("/tasks", func(r chi.Router) {
+				r.Patch("/{id}", taskHandlers.Update)
+				r.Delete("/{id}", taskHandlers.Delete)
 			})
 		})
 

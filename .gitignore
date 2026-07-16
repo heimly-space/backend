@@ -44,3 +44,5 @@ go.work.sum
 .DS_Store
 .heimly
 .gocache
+.gomodcache/
+.codegraph/

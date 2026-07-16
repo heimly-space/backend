@@ -34,7 +34,7 @@ services:
     ports:
       - "${POSTGRES_PORT}:5432"
     volumes:
-      - heimly_dev_db:/var/lib/postgresql/data
+      - heimly_dev_db:/var/lib/postgresql
     networks:
       - heimly_dev_net
     healthcheck:

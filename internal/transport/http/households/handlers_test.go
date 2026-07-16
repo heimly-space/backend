@@ -112,6 +112,44 @@ func TestCreateHandlerSuccess(t *testing.T) {
 	}
 }
 
+func TestCreateHandlerRejectsTrailingJSON(t *testing.T) {
+	userID := uuid.New()
+
+	h := &Handlers{Households: &domain.Service{Repo: &repoStub{
+		createFn: func(_ context.Context, _ string, _ uuid.UUID) (*domain.Household, error) {
+			t.Fatal("Create should not be called on invalid JSON")
+			return nil, nil
+		},
+		existsFn: func(_ context.Context, _ uuid.UUID) (bool, error) { return false, nil },
+		isMemberFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
+			return false, nil
+		},
+		addMemberByEmailFn: func(_ context.Context, _ uuid.UUID, _ string) (*domain.Member, error) {
+			return nil, nil
+		},
+		listMembersFn: func(_ context.Context, _ uuid.UUID, _ *domain.MembersListCursor, _ int) ([]domain.Member, error) {
+			return nil, nil
+		},
+		listByUserFn: func(_ context.Context, _ uuid.UUID, _ *domain.ListCursor, _ int) ([]domain.HouseholdWithRole, error) {
+			return nil, nil
+		},
+	}}}
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/households",
+		bytes.NewBufferString(`{"name":"Mad Tea House"} {"extra":true}`),
+	)
+	req = req.WithContext(httpmw.ContextWithUserID(req.Context(), userID))
+	rec := httptest.NewRecorder()
+
+	h.Create(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d (%s)", rec.Code, rec.Body.String())
+	}
+}
+
 func TestInviteMemberHandlerConflict(t *testing.T) {
 	userID := uuid.New()
 	householdID := uuid.New()
