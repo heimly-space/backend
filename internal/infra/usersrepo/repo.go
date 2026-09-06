@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	domain "heimly.space/backend/internal/domain/users"
 )
@@ -69,7 +70,7 @@ func (r *Repo) GetByLogin(ctx context.Context, login string) (*domain.UserWithPa
 		&birthday,
 	)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrUserNotFound
 		}
 		return nil, err
@@ -96,7 +97,7 @@ func (r *Repo) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) 
 		&birthday,
 	)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrUserNotFound
 		}
 		return nil, err

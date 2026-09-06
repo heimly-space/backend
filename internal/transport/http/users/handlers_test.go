@@ -268,6 +268,60 @@ func TestRegisterHandlerInvalidRequest(t *testing.T) {
 	}
 }
 
+func TestRegisterHandlerRejectsTrailingJSON(t *testing.T) {
+	repo := &handlersRepoStub{
+		createFn: func(_ context.Context, _, _, _, _ string, _ time.Time) (uuid.UUID, error) {
+			t.Fatal("Create should not be called on invalid request")
+			return uuid.Nil, nil
+		},
+		getByLoginFn: func(_ context.Context, _ string) (*domain.UserWithPassword, error) {
+			t.Fatal("GetByLogin should not be called")
+			return nil, nil
+		},
+		getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.User, error) {
+			t.Fatal("GetByID should not be called")
+			return nil, nil
+		},
+	}
+	refreshStore := &handlersRefreshStoreStub{
+		storeFn: func(_ context.Context, _ uuid.UUID, _ string, _ time.Duration) error {
+			t.Fatal("Store should not be called")
+			return nil
+		},
+		rotateFn: func(_ context.Context, _ uuid.UUID, _, _ string, _ time.Duration) error {
+			t.Fatal("Rotate should not be called")
+			return nil
+		},
+	}
+	accessStore := &handlersAccessStoreStub{
+		storeFn: func(_ context.Context, _ string, _ uuid.UUID, _ time.Duration) error {
+			t.Fatal("StoreAccessToken should not be called")
+			return nil
+		},
+		isActiveFn: func(_ context.Context, _ string, _ uuid.UUID) (bool, error) {
+			t.Fatal("IsAccessTokenActive should not be called")
+			return false, nil
+		},
+	}
+	h := newAuthHandlers("secret", repo, accessStore, refreshStore)
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/auth/register",
+		bytes.NewBufferString(`{"login":"john","email":"john@example.com","name":"John Doe","password":"pw"} {"extra":true}`),
+	)
+	rec := httptest.NewRecorder()
+
+	h.Register(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d (%s)", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "invalid request") {
+		t.Fatalf("unexpected body: %q", rec.Body.String())
+	}
+}
+
 func TestLoginHandlerInvalidCredentials(t *testing.T) {
 	repo := &handlersRepoStub{
 		createFn: func(_ context.Context, _, _, _, _ string, _ time.Time) (uuid.UUID, error) {

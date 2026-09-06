@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS idx_tasks_household_status_created_id;

@@ -5,6 +5,8 @@
 @password = cheshire-smile-123
 @householdsCursor =
 @membersCursor =
+@tasksCursor =
+@taskId =
 
 ### Register (stores access + refresh tokens)
 POST {{baseUrl}}/api/v1/auth/register
@@ -121,3 +123,50 @@ Authorization: Bearer {{token}}
     client.global.set("membersCursor", response.body.next_cursor || "");
   }
 %}
+
+### Create household task
+POST {{baseUrl}}/api/v1/households/{{householdId}}/tasks
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{token}}
+
+{
+  "title": "Paint the white roses",
+  "description": "Bring red paint before the Queen arrives",
+  "status": "pending",
+  "due_at": "2026-03-01",
+  "assignee_ids": []
+}
+
+> {%
+  if (response.status === 201 && response.body && response.body.id) {
+    client.global.set("taskId", response.body.id);
+  }
+%}
+
+### List household tasks (cursor pagination + optional filters)
+GET {{baseUrl}}/api/v1/households/{{householdId}}/tasks?status=pending&limit=20&cursor={{tasksCursor}}
+Accept: application/json
+Authorization: Bearer {{token}}
+
+> {%
+  if (response.status === 200 && response.body) {
+    client.global.set("tasksCursor", response.body.next_cursor || "");
+  }
+%}
+
+### Update task
+PATCH {{baseUrl}}/api/v1/tasks/{{taskId}}
+Content-Type: application/json
+Accept: application/json
+Authorization: Bearer {{token}}
+
+{
+  "status": "done",
+  "assignee_ids": null
+}
+
+### Delete task
+DELETE {{baseUrl}}/api/v1/tasks/{{taskId}}
+Accept: application/json
+Authorization: Bearer {{token}}

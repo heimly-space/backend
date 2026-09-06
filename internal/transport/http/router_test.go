@@ -14,9 +14,11 @@ import (
 	"github.com/google/uuid"
 	"heimly.space/backend/internal/cfg"
 	householddomain "heimly.space/backend/internal/domain/households"
+	taskdomain "heimly.space/backend/internal/domain/tasks"
 	domain "heimly.space/backend/internal/domain/users"
 	authinfra "heimly.space/backend/internal/infra/auth"
 	householdshttp "heimly.space/backend/internal/transport/http/households"
+	taskhttp "heimly.space/backend/internal/transport/http/tasks"
 	usershttp "heimly.space/backend/internal/transport/http/users"
 )
 
@@ -206,6 +208,84 @@ func (r *routerHouseholdRepoStub) ListByUser(
 	return r.listByUserFn(ctx, userID, cursor, limit)
 }
 
+type routerTaskRepoStub struct {
+	householdExistsFn   func(ctx context.Context, householdID uuid.UUID) (bool, error)
+	isHouseholdMemberFn func(ctx context.Context, householdID, userID uuid.UUID) (bool, error)
+	createFn            func(ctx context.Context, task *taskdomain.Task) (*taskdomain.Task, error)
+	listByHouseholdFn   func(
+		ctx context.Context,
+		householdID uuid.UUID,
+		filter taskdomain.ListFilter,
+		cursor *taskdomain.TaskListCursor,
+		limit int,
+	) ([]taskdomain.Task, error)
+	getByIDFn func(ctx context.Context, taskID uuid.UUID) (*taskdomain.Task, error)
+	updateFn  func(ctx context.Context, task *taskdomain.Task, assigneesChanged bool) (*taskdomain.Task, error)
+	deleteFn  func(ctx context.Context, taskID uuid.UUID) (bool, error)
+}
+
+func (r *routerTaskRepoStub) HouseholdExists(ctx context.Context, householdID uuid.UUID) (bool, error) {
+	if r.householdExistsFn == nil {
+		return false, errors.New("unexpected task HouseholdExists call")
+	}
+	return r.householdExistsFn(ctx, householdID)
+}
+
+func (r *routerTaskRepoStub) IsHouseholdMember(
+	ctx context.Context,
+	householdID, userID uuid.UUID,
+) (bool, error) {
+	if r.isHouseholdMemberFn == nil {
+		return false, errors.New("unexpected task IsHouseholdMember call")
+	}
+	return r.isHouseholdMemberFn(ctx, householdID, userID)
+}
+
+func (r *routerTaskRepoStub) Create(ctx context.Context, task *taskdomain.Task) (*taskdomain.Task, error) {
+	if r.createFn == nil {
+		return nil, errors.New("unexpected task Create call")
+	}
+	return r.createFn(ctx, task)
+}
+
+func (r *routerTaskRepoStub) ListByHousehold(
+	ctx context.Context,
+	householdID uuid.UUID,
+	filter taskdomain.ListFilter,
+	cursor *taskdomain.TaskListCursor,
+	limit int,
+) ([]taskdomain.Task, error) {
+	if r.listByHouseholdFn == nil {
+		return nil, errors.New("unexpected task ListByHousehold call")
+	}
+	return r.listByHouseholdFn(ctx, householdID, filter, cursor, limit)
+}
+
+func (r *routerTaskRepoStub) GetByID(ctx context.Context, taskID uuid.UUID) (*taskdomain.Task, error) {
+	if r.getByIDFn == nil {
+		return nil, errors.New("unexpected task GetByID call")
+	}
+	return r.getByIDFn(ctx, taskID)
+}
+
+func (r *routerTaskRepoStub) Update(
+	ctx context.Context,
+	task *taskdomain.Task,
+	assigneesChanged bool,
+) (*taskdomain.Task, error) {
+	if r.updateFn == nil {
+		return nil, errors.New("unexpected task Update call")
+	}
+	return r.updateFn(ctx, task, assigneesChanged)
+}
+
+func (r *routerTaskRepoStub) Delete(ctx context.Context, taskID uuid.UUID) (bool, error) {
+	if r.deleteFn == nil {
+		return false, errors.New("unexpected task Delete call")
+	}
+	return r.deleteFn(ctx, taskID)
+}
+
 func newTestRouter(
 	secret string,
 	repo domain.Repository,
@@ -257,7 +337,41 @@ func newTestRouter(
 			},
 		},
 	}
-	return NewRouter(authHandlers, householdHandlers, &cfg.Config{JWTSecret: secret})
+	taskHandlers := &taskhttp.Handlers{
+		Tasks: &taskdomain.Service{
+			CursorSecret: secret,
+			Repo: &routerTaskRepoStub{
+				householdExistsFn: func(_ context.Context, _ uuid.UUID) (bool, error) {
+					return false, errors.New("unexpected task household exists")
+				},
+				isHouseholdMemberFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
+					return false, errors.New("unexpected task household member")
+				},
+				createFn: func(_ context.Context, _ *taskdomain.Task) (*taskdomain.Task, error) {
+					return nil, errors.New("unexpected task create")
+				},
+				listByHouseholdFn: func(
+					_ context.Context,
+					_ uuid.UUID,
+					_ taskdomain.ListFilter,
+					_ *taskdomain.TaskListCursor,
+					_ int,
+				) ([]taskdomain.Task, error) {
+					return nil, errors.New("unexpected task list")
+				},
+				getByIDFn: func(_ context.Context, _ uuid.UUID) (*taskdomain.Task, error) {
+					return nil, errors.New("unexpected task get by id")
+				},
+				updateFn: func(_ context.Context, _ *taskdomain.Task, _ bool) (*taskdomain.Task, error) {
+					return nil, errors.New("unexpected task update")
+				},
+				deleteFn: func(_ context.Context, _ uuid.UUID) (bool, error) {
+					return false, errors.New("unexpected task delete")
+				},
+			},
+		},
+	}
+	return NewRouter(authHandlers, householdHandlers, taskHandlers, &cfg.Config{JWTSecret: secret})
 }
 
 func newTestRouterWithHouseholdsRepo(
@@ -291,7 +405,110 @@ func newTestRouterWithHouseholdsRepo(
 			CursorSecret: secret,
 		},
 	}
-	return NewRouter(authHandlers, householdHandlers, &cfg.Config{JWTSecret: secret})
+	taskHandlers := &taskhttp.Handlers{
+		Tasks: &taskdomain.Service{
+			CursorSecret: secret,
+			Repo: &routerTaskRepoStub{
+				householdExistsFn: func(_ context.Context, _ uuid.UUID) (bool, error) {
+					return false, errors.New("unexpected task household exists")
+				},
+				isHouseholdMemberFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
+					return false, errors.New("unexpected task household member")
+				},
+				createFn: func(_ context.Context, _ *taskdomain.Task) (*taskdomain.Task, error) {
+					return nil, errors.New("unexpected task create")
+				},
+				listByHouseholdFn: func(
+					_ context.Context,
+					_ uuid.UUID,
+					_ taskdomain.ListFilter,
+					_ *taskdomain.TaskListCursor,
+					_ int,
+				) ([]taskdomain.Task, error) {
+					return nil, errors.New("unexpected task list")
+				},
+				getByIDFn: func(_ context.Context, _ uuid.UUID) (*taskdomain.Task, error) {
+					return nil, errors.New("unexpected task get by id")
+				},
+				updateFn: func(_ context.Context, _ *taskdomain.Task, _ bool) (*taskdomain.Task, error) {
+					return nil, errors.New("unexpected task update")
+				},
+				deleteFn: func(_ context.Context, _ uuid.UUID) (bool, error) {
+					return false, errors.New("unexpected task delete")
+				},
+			},
+		},
+	}
+	return NewRouter(authHandlers, householdHandlers, taskHandlers, &cfg.Config{JWTSecret: secret})
+}
+
+func newTestRouterWithTasksRepo(
+	secret string,
+	taskRepo taskdomain.Repository,
+	accessStore domain.AccessTokenStore,
+) nethttp.Handler {
+	authHandlers := &usershttp.AuthHandlers{
+		Users: &domain.Service{
+			Repo: &routerRepoStub{
+				createFn: func(_ context.Context, _, _, _, _ string, _ time.Time) (uuid.UUID, error) {
+					return uuid.Nil, errors.New("unexpected auth create")
+				},
+				getByLoginFn: func(_ context.Context, _ string) (*domain.UserWithPassword, error) {
+					return nil, errors.New("unexpected auth get-by-login")
+				},
+				getByIDFn: func(_ context.Context, _ uuid.UUID) (*domain.User, error) {
+					return nil, errors.New("unexpected auth get-by-id")
+				},
+			},
+			AccessTokens:    accessStore,
+			RefreshTokens:   &routerRefreshStoreStub{},
+			JWTSecret:       secret,
+			AccessTokenTTL:  time.Hour,
+			RefreshTokenTTL: 24 * time.Hour,
+		},
+	}
+	householdHandlers := &householdshttp.Handlers{
+		Households: &householddomain.Service{
+			CursorSecret: secret,
+			Repo: &routerHouseholdRepoStub{
+				createFn: func(_ context.Context, _ string, _ uuid.UUID) (*householddomain.Household, error) {
+					return nil, errors.New("unexpected household create")
+				},
+				existsFn: func(_ context.Context, _ uuid.UUID) (bool, error) {
+					return false, errors.New("unexpected household exists")
+				},
+				isMemberFn: func(_ context.Context, _, _ uuid.UUID) (bool, error) {
+					return false, errors.New("unexpected household is-member")
+				},
+				addMemberByEmailFn: func(_ context.Context, _ uuid.UUID, _ string) (*householddomain.Member, error) {
+					return nil, errors.New("unexpected household invite")
+				},
+				listMembersFn: func(
+					_ context.Context,
+					_ uuid.UUID,
+					_ *householddomain.MembersListCursor,
+					_ int,
+				) ([]householddomain.Member, error) {
+					return nil, errors.New("unexpected household list")
+				},
+				listByUserFn: func(
+					_ context.Context,
+					_ uuid.UUID,
+					_ *householddomain.ListCursor,
+					_ int,
+				) ([]householddomain.HouseholdWithRole, error) {
+					return nil, errors.New("unexpected household list-by-user")
+				},
+			},
+		},
+	}
+	taskHandlers := &taskhttp.Handlers{
+		Tasks: &taskdomain.Service{
+			Repo:         taskRepo,
+			CursorSecret: secret,
+		},
+	}
+	return NewRouter(authHandlers, householdHandlers, taskHandlers, &cfg.Config{JWTSecret: secret})
 }
 
 func TestRouterHealth(t *testing.T) {
@@ -813,5 +1030,378 @@ func TestRouterListHouseholdsRoute(t *testing.T) {
 	}
 	if resp.Items[0].ID != householdID.String() || resp.Items[0].Role != "owner" {
 		t.Fatalf("unexpected item: %+v", resp.Items[0])
+	}
+}
+
+func TestRouterCreateTaskRoute(t *testing.T) {
+	userID := uuid.New()
+	householdID := uuid.New()
+	taskID := uuid.New()
+	secret := "secret"
+	var accessToken string
+
+	router := newTestRouterWithTasksRepo(
+		secret,
+		&routerTaskRepoStub{
+			householdExistsFn: func(_ context.Context, gotHouseholdID uuid.UUID) (bool, error) {
+				return gotHouseholdID == householdID, nil
+			},
+			isHouseholdMemberFn: func(_ context.Context, gotHouseholdID, gotUserID uuid.UUID) (bool, error) {
+				return gotHouseholdID == householdID && gotUserID == userID, nil
+			},
+			createFn: func(_ context.Context, task *taskdomain.Task) (*taskdomain.Task, error) {
+				if task.Title != "Serve tea at the Mad Tea Party" {
+					t.Fatalf("unexpected title: %q", task.Title)
+				}
+				task.ID = taskID
+				task.CreatedAt = time.Now().UTC()
+				task.UpdatedAt = task.CreatedAt
+				return task, nil
+			},
+			listByHouseholdFn: func(
+				_ context.Context,
+				_ uuid.UUID,
+				_ taskdomain.ListFilter,
+				_ *taskdomain.TaskListCursor,
+				_ int,
+			) ([]taskdomain.Task, error) {
+				t.Fatal("ListByHousehold should not be called")
+				return nil, nil
+			},
+			getByIDFn: func(_ context.Context, _ uuid.UUID) (*taskdomain.Task, error) {
+				t.Fatal("GetByID should not be called")
+				return nil, nil
+			},
+			updateFn: func(_ context.Context, _ *taskdomain.Task, _ bool) (*taskdomain.Task, error) {
+				t.Fatal("Update should not be called")
+				return nil, nil
+			},
+			deleteFn: func(_ context.Context, _ uuid.UUID) (bool, error) {
+				t.Fatal("Delete should not be called")
+				return false, nil
+			},
+		},
+		&routerAccessStoreStub{
+			isActiveFn: func(_ context.Context, jti string, gotUserID uuid.UUID) (bool, error) {
+				claims, err := authinfra.ParseTokenClaims(accessToken, secret)
+				if err != nil {
+					t.Fatalf("parse token claims: %v", err)
+				}
+				return claims.JTI == jti && gotUserID == userID, nil
+			},
+		},
+	)
+
+	token, err := authinfra.GenerateToken(userID, secret, time.Hour)
+	if err != nil {
+		t.Fatalf("generate access token: %v", err)
+	}
+	accessToken = token
+
+	req := httptest.NewRequest(
+		nethttp.MethodPost,
+		"/api/v1/households/"+householdID.String()+"/tasks",
+		bytes.NewBufferString(`{"title":"Serve tea at the Mad Tea Party","status":"pending"}`),
+	)
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != nethttp.StatusCreated {
+		t.Fatalf("expected 201, got %d (%s)", rec.Code, rec.Body.String())
+	}
+
+	var resp taskhttp.TaskResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.ID != taskID.String() {
+		t.Fatalf("unexpected task id: %s", resp.ID)
+	}
+}
+
+func TestRouterPatchTaskRoute(t *testing.T) {
+	userID := uuid.New()
+	householdID := uuid.New()
+	taskID := uuid.New()
+	secret := "secret"
+	var accessToken string
+
+	router := newTestRouterWithTasksRepo(
+		secret,
+		&routerTaskRepoStub{
+			householdExistsFn: func(_ context.Context, _ uuid.UUID) (bool, error) {
+				t.Fatal("HouseholdExists should not be called")
+				return false, nil
+			},
+			isHouseholdMemberFn: func(_ context.Context, gotHouseholdID, gotUserID uuid.UUID) (bool, error) {
+				return gotHouseholdID == householdID && gotUserID == userID, nil
+			},
+			createFn: func(_ context.Context, _ *taskdomain.Task) (*taskdomain.Task, error) {
+				t.Fatal("Create should not be called")
+				return nil, nil
+			},
+			listByHouseholdFn: func(
+				_ context.Context,
+				_ uuid.UUID,
+				_ taskdomain.ListFilter,
+				_ *taskdomain.TaskListCursor,
+				_ int,
+			) ([]taskdomain.Task, error) {
+				t.Fatal("ListByHousehold should not be called")
+				return nil, nil
+			},
+			getByIDFn: func(_ context.Context, gotTaskID uuid.UUID) (*taskdomain.Task, error) {
+				if gotTaskID != taskID {
+					t.Fatalf("unexpected task id: %s", gotTaskID)
+				}
+				return &taskdomain.Task{
+					ID:          taskID,
+					HouseholdID: householdID,
+					Title:       "Old Rabbit Reminder",
+					Status:      taskdomain.StatusPending,
+					AssigneeIDs: []uuid.UUID{uuid.New()},
+					CreatedAt:   time.Now().UTC(),
+					UpdatedAt:   time.Now().UTC(),
+				}, nil
+			},
+			updateFn: func(_ context.Context, task *taskdomain.Task, assigneesChanged bool) (*taskdomain.Task, error) {
+				if !assigneesChanged {
+					t.Fatal("expected assigneesChanged=true")
+				}
+				if len(task.AssigneeIDs) != 0 {
+					t.Fatalf("expected no assignees, got %d", len(task.AssigneeIDs))
+				}
+				if task.Status != taskdomain.StatusDone {
+					t.Fatalf("unexpected status: %s", task.Status)
+				}
+				return task, nil
+			},
+			deleteFn: func(_ context.Context, _ uuid.UUID) (bool, error) {
+				t.Fatal("Delete should not be called")
+				return false, nil
+			},
+		},
+		&routerAccessStoreStub{
+			isActiveFn: func(_ context.Context, jti string, gotUserID uuid.UUID) (bool, error) {
+				claims, err := authinfra.ParseTokenClaims(accessToken, secret)
+				if err != nil {
+					t.Fatalf("parse token claims: %v", err)
+				}
+				return claims.JTI == jti && gotUserID == userID, nil
+			},
+		},
+	)
+
+	token, err := authinfra.GenerateToken(userID, secret, time.Hour)
+	if err != nil {
+		t.Fatalf("generate access token: %v", err)
+	}
+	accessToken = token
+
+	req := httptest.NewRequest(
+		nethttp.MethodPatch,
+		"/api/v1/tasks/"+taskID.String(),
+		bytes.NewBufferString(`{"status":"done","assignee_ids":null}`),
+	)
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != nethttp.StatusOK {
+		t.Fatalf("expected 200, got %d (%s)", rec.Code, rec.Body.String())
+	}
+}
+
+func TestRouterListTasksRoute(t *testing.T) {
+	userID := uuid.New()
+	householdID := uuid.New()
+	taskID := uuid.New()
+	secret := "secret"
+	var accessToken string
+	now := time.Date(2026, time.February, 28, 15, 0, 0, 0, time.UTC)
+
+	router := newTestRouterWithTasksRepo(
+		secret,
+		&routerTaskRepoStub{
+			householdExistsFn: func(_ context.Context, gotHouseholdID uuid.UUID) (bool, error) {
+				return gotHouseholdID == householdID, nil
+			},
+			isHouseholdMemberFn: func(_ context.Context, gotHouseholdID, gotUserID uuid.UUID) (bool, error) {
+				return gotHouseholdID == householdID && gotUserID == userID, nil
+			},
+			createFn: func(_ context.Context, _ *taskdomain.Task) (*taskdomain.Task, error) {
+				t.Fatal("Create should not be called")
+				return nil, nil
+			},
+			listByHouseholdFn: func(
+				_ context.Context,
+				_ uuid.UUID,
+				filter taskdomain.ListFilter,
+				cursor *taskdomain.TaskListCursor,
+				limit int,
+			) ([]taskdomain.Task, error) {
+				if filter.Status != taskdomain.StatusPending {
+					t.Fatalf("unexpected status filter: %q", filter.Status)
+				}
+				if cursor != nil {
+					t.Fatalf("expected nil cursor, got %+v", cursor)
+				}
+				if limit != 21 {
+					t.Fatalf("unexpected limit: %d", limit)
+				}
+				return []taskdomain.Task{
+					{
+						ID:          taskID,
+						HouseholdID: householdID,
+						Title:       "Paint the white roses",
+						Status:      taskdomain.StatusPending,
+						CreatedAt:   now,
+						UpdatedAt:   now,
+					},
+				}, nil
+			},
+			getByIDFn: func(_ context.Context, _ uuid.UUID) (*taskdomain.Task, error) {
+				t.Fatal("GetByID should not be called")
+				return nil, nil
+			},
+			updateFn: func(_ context.Context, _ *taskdomain.Task, _ bool) (*taskdomain.Task, error) {
+				t.Fatal("Update should not be called")
+				return nil, nil
+			},
+			deleteFn: func(_ context.Context, _ uuid.UUID) (bool, error) {
+				t.Fatal("Delete should not be called")
+				return false, nil
+			},
+		},
+		&routerAccessStoreStub{
+			isActiveFn: func(_ context.Context, jti string, gotUserID uuid.UUID) (bool, error) {
+				claims, err := authinfra.ParseTokenClaims(accessToken, secret)
+				if err != nil {
+					t.Fatalf("parse token claims: %v", err)
+				}
+				return claims.JTI == jti && gotUserID == userID, nil
+			},
+		},
+	)
+
+	token, err := authinfra.GenerateToken(userID, secret, time.Hour)
+	if err != nil {
+		t.Fatalf("generate access token: %v", err)
+	}
+	accessToken = token
+
+	req := httptest.NewRequest(
+		nethttp.MethodGet,
+		"/api/v1/households/"+householdID.String()+"/tasks?status=pending&limit=20",
+		nil,
+	)
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != nethttp.StatusOK {
+		t.Fatalf("expected 200, got %d (%s)", rec.Code, rec.Body.String())
+	}
+
+	var resp taskhttp.ListTasksResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(resp.Items) != 1 {
+		t.Fatalf("expected 1 item, got %d", len(resp.Items))
+	}
+	if resp.Items[0].ID != taskID.String() {
+		t.Fatalf("unexpected task id: %s", resp.Items[0].ID)
+	}
+}
+
+func TestRouterDeleteTaskRoute(t *testing.T) {
+	userID := uuid.New()
+	householdID := uuid.New()
+	taskID := uuid.New()
+	secret := "secret"
+	var accessToken string
+
+	router := newTestRouterWithTasksRepo(
+		secret,
+		&routerTaskRepoStub{
+			householdExistsFn: func(_ context.Context, _ uuid.UUID) (bool, error) {
+				t.Fatal("HouseholdExists should not be called")
+				return false, nil
+			},
+			isHouseholdMemberFn: func(_ context.Context, gotHouseholdID, gotUserID uuid.UUID) (bool, error) {
+				return gotHouseholdID == householdID && gotUserID == userID, nil
+			},
+			createFn: func(_ context.Context, _ *taskdomain.Task) (*taskdomain.Task, error) {
+				t.Fatal("Create should not be called")
+				return nil, nil
+			},
+			listByHouseholdFn: func(
+				_ context.Context,
+				_ uuid.UUID,
+				_ taskdomain.ListFilter,
+				_ *taskdomain.TaskListCursor,
+				_ int,
+			) ([]taskdomain.Task, error) {
+				t.Fatal("ListByHousehold should not be called")
+				return nil, nil
+			},
+			getByIDFn: func(_ context.Context, gotTaskID uuid.UUID) (*taskdomain.Task, error) {
+				if gotTaskID != taskID {
+					t.Fatalf("unexpected task id: %s", gotTaskID)
+				}
+				return &taskdomain.Task{
+					ID:          taskID,
+					HouseholdID: householdID,
+					Title:       "Paint the white roses",
+					Status:      taskdomain.StatusPending,
+				}, nil
+			},
+			updateFn: func(_ context.Context, _ *taskdomain.Task, _ bool) (*taskdomain.Task, error) {
+				t.Fatal("Update should not be called")
+				return nil, nil
+			},
+			deleteFn: func(_ context.Context, gotTaskID uuid.UUID) (bool, error) {
+				if gotTaskID != taskID {
+					t.Fatalf("unexpected task id: %s", gotTaskID)
+				}
+				return true, nil
+			},
+		},
+		&routerAccessStoreStub{
+			isActiveFn: func(_ context.Context, jti string, gotUserID uuid.UUID) (bool, error) {
+				claims, err := authinfra.ParseTokenClaims(accessToken, secret)
+				if err != nil {
+					t.Fatalf("parse token claims: %v", err)
+				}
+				return claims.JTI == jti && gotUserID == userID, nil
+			},
+		},
+	)
+
+	token, err := authinfra.GenerateToken(userID, secret, time.Hour)
+	if err != nil {
+		t.Fatalf("generate access token: %v", err)
+	}
+	accessToken = token
+
+	req := httptest.NewRequest(
+		nethttp.MethodDelete,
+		"/api/v1/tasks/"+taskID.String(),
+		nil,
+	)
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != nethttp.StatusNoContent {
+		t.Fatalf("expected 204, got %d (%s)", rec.Code, rec.Body.String())
 	}
 }
