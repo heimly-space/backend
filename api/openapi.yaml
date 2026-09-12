@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Heimly Backend API
-  version: 0.1.0
+  version: 0.1.1
   description: API for auth workflow, current user profile, and household collaboration.
 servers:
   - url: http://localhost:8080
