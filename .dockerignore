@@ -1,0 +1,14 @@
+.git
+.github
+.idea
+.codegraph
+.gocache
+.gomodcache
+.heimly
+.env
+.env.*
+Dockerfile
+docker-compose*.yml
+README.md
+*.test
+*.out
