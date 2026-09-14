@@ -1,6 +1,10 @@
 package users
 
-import "heimly.space/backend/internal/httpdto"
+import (
+	"uuid"
+
+	"heimly.space/backend/internal/httpdto"
+)
 
 type RegisterRequest struct {
 	Login    string        `json:"login"`
@@ -29,7 +33,7 @@ type AuthResponse struct {
 }
 
 type UserResponse struct {
-	ID       string        `json:"id"`
+	ID       uuid.UUID     `json:"id"`
 	Login    string        `json:"login"`
 	Email    string        `json:"email"`
 	Name     string        `json:"name"`

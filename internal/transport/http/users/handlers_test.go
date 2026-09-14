@@ -784,7 +784,7 @@ func TestGetMeHandlerSuccessThroughMiddleware(t *testing.T) {
 	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if resp.ID != userID.String() {
+	if resp.ID != userID {
 		t.Fatalf("unexpected id: %s", resp.ID)
 	}
 	if resp.Login != "john" || resp.Email != "john@example.com" || resp.Name != "John Doe" {

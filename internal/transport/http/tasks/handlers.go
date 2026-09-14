@@ -291,8 +291,8 @@ func handleTaskError(w http.ResponseWriter, err error) {
 
 func toTaskResponse(task *domain.Task) TaskResponse {
 	resp := TaskResponse{
-		ID:          task.ID.String(),
-		HouseholdID: task.HouseholdID.String(),
+		ID:          task.ID,
+		HouseholdID: task.HouseholdID,
 		Title:       task.Title,
 		Description: task.Description,
 		Status:      task.Status,
@@ -304,9 +304,9 @@ func toTaskResponse(task *domain.Task) TaskResponse {
 		resp.DueAt = &d
 	}
 	if len(task.AssigneeIDs) > 0 {
-		resp.AssigneeIDs = make([]string, 0, len(task.AssigneeIDs))
+		resp.AssigneeIDs = make([]uuid.UUID, 0, len(task.AssigneeIDs))
 		for _, assigneeID := range task.AssigneeIDs {
-			resp.AssigneeIDs = append(resp.AssigneeIDs, assigneeID.String())
+			resp.AssigneeIDs = append(resp.AssigneeIDs, assigneeID)
 		}
 	}
 	return resp

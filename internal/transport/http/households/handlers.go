@@ -46,7 +46,7 @@ func (h *Handlers) ListByUser(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, item := range result.Items {
 		resp.Items = append(resp.Items, HouseholdWithRoleResponse{
-			ID:        item.ID.String(),
+			ID:        item.ID,
 			Name:      item.Name,
 			Role:      item.Role,
 			CreatedAt: item.CreatedAt,
@@ -80,7 +80,7 @@ func (h *Handlers) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, HouseholdResponse{
-		ID:        household.ID.String(),
+		ID:        household.ID,
 		Name:      household.Name,
 		CreatedAt: household.CreatedAt,
 	})
@@ -121,7 +121,7 @@ func (h *Handlers) InviteMember(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, MemberResponse{
-		UserID:    member.UserID.String(),
+		UserID:    member.UserID,
 		Email:     member.Email,
 		Name:      member.Name,
 		Role:      member.Role,
@@ -173,7 +173,7 @@ func (h *Handlers) ListMembers(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, m := range result.Members {
 		resp.Members = append(resp.Members, MemberResponse{
-			UserID:    m.UserID.String(),
+			UserID:    m.UserID,
 			Email:     m.Email,
 			Name:      m.Name,
 			Role:      m.Role,

@@ -836,7 +836,7 @@ func TestRouterUsersMeRouteAuthorized(t *testing.T) {
 	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
 		t.Fatalf("decode profile response: %v", err)
 	}
-	if resp.ID != userID.String() {
+	if resp.ID != userID {
 		t.Fatalf("unexpected profile id: %s", resp.ID)
 	}
 }
@@ -925,7 +925,7 @@ func TestRouterCreateHouseholdRoute(t *testing.T) {
 	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
 		t.Fatalf("decode create household response: %v", err)
 	}
-	if resp.ID != householdID.String() {
+	if resp.ID != householdID {
 		t.Fatalf("unexpected household id: %s", resp.ID)
 	}
 	if resp.Name != "Wonderland Flat" {
@@ -1028,7 +1028,7 @@ func TestRouterListHouseholdsRoute(t *testing.T) {
 	if len(resp.Items) != 1 {
 		t.Fatalf("expected 1 item, got %d", len(resp.Items))
 	}
-	if resp.Items[0].ID != householdID.String() || resp.Items[0].Role != "owner" {
+	if resp.Items[0].ID != householdID || resp.Items[0].Role != "owner" {
 		t.Fatalf("unexpected item: %+v", resp.Items[0])
 	}
 }
@@ -1117,7 +1117,7 @@ func TestRouterCreateTaskRoute(t *testing.T) {
 	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if resp.ID != taskID.String() {
+	if resp.ID != taskID {
 		t.Fatalf("unexpected task id: %s", resp.ID)
 	}
 }
@@ -1316,7 +1316,7 @@ func TestRouterListTasksRoute(t *testing.T) {
 	if len(resp.Items) != 1 {
 		t.Fatalf("expected 1 item, got %d", len(resp.Items))
 	}
-	if resp.Items[0].ID != taskID.String() {
+	if resp.Items[0].ID != taskID {
 		t.Fatalf("unexpected task id: %s", resp.Items[0].ID)
 	}
 }
