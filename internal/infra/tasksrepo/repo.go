@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
@@ -358,7 +358,7 @@ func uniqueAssigneeIDs(assigneeIDs []uuid.UUID) []uuid.UUID {
 	seen := make(map[uuid.UUID]struct{}, len(assigneeIDs))
 	result := make([]uuid.UUID, 0, len(assigneeIDs))
 	for _, assigneeID := range assigneeIDs {
-		if assigneeID == uuid.Nil {
+		if assigneeID == uuid.Nil() {
 			continue
 		}
 		if _, ok := seen[assigneeID]; ok {

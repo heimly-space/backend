@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	domain "heimly.space/backend/internal/domain/users"
 	"heimly.space/backend/internal/httpdto"
 	authinfra "heimly.space/backend/internal/infra/auth"
@@ -222,7 +222,7 @@ func TestRegisterHandlerInvalidRequest(t *testing.T) {
 	repo := &handlersRepoStub{
 		createFn: func(_ context.Context, _, _, _, _ string, _ time.Time) (uuid.UUID, error) {
 			t.Fatal("Create should not be called on invalid request")
-			return uuid.Nil, nil
+			return uuid.Nil(), nil
 		},
 		getByLoginFn: func(_ context.Context, _ string) (*domain.UserWithPassword, error) {
 			t.Fatal("GetByLogin should not be called")
@@ -272,7 +272,7 @@ func TestRegisterHandlerRejectsTrailingJSON(t *testing.T) {
 	repo := &handlersRepoStub{
 		createFn: func(_ context.Context, _, _, _, _ string, _ time.Time) (uuid.UUID, error) {
 			t.Fatal("Create should not be called on invalid request")
-			return uuid.Nil, nil
+			return uuid.Nil(), nil
 		},
 		getByLoginFn: func(_ context.Context, _ string) (*domain.UserWithPassword, error) {
 			t.Fatal("GetByLogin should not be called")
@@ -326,7 +326,7 @@ func TestLoginHandlerInvalidCredentials(t *testing.T) {
 	repo := &handlersRepoStub{
 		createFn: func(_ context.Context, _, _, _, _ string, _ time.Time) (uuid.UUID, error) {
 			t.Fatal("Create should not be called")
-			return uuid.Nil, nil
+			return uuid.Nil(), nil
 		},
 		getByLoginFn: func(_ context.Context, _ string) (*domain.UserWithPassword, error) {
 			return nil, domain.ErrUserNotFound
@@ -385,7 +385,7 @@ func TestRefreshHandlerSuccess(t *testing.T) {
 	repo := &handlersRepoStub{
 		createFn: func(_ context.Context, _, _, _, _ string, _ time.Time) (uuid.UUID, error) {
 			t.Fatal("Create should not be called")
-			return uuid.Nil, nil
+			return uuid.Nil(), nil
 		},
 		getByLoginFn: func(_ context.Context, _ string) (*domain.UserWithPassword, error) {
 			t.Fatal("GetByLogin should not be called")
@@ -475,7 +475,7 @@ func TestRefreshHandlerInvalidToken(t *testing.T) {
 	repo := &handlersRepoStub{
 		createFn: func(_ context.Context, _, _, _, _ string, _ time.Time) (uuid.UUID, error) {
 			t.Fatal("Create should not be called")
-			return uuid.Nil, nil
+			return uuid.Nil(), nil
 		},
 		getByLoginFn: func(_ context.Context, _ string) (*domain.UserWithPassword, error) {
 			t.Fatal("GetByLogin should not be called")
@@ -539,7 +539,7 @@ func TestLogoutHandlerSuccess(t *testing.T) {
 	repo := &handlersRepoStub{
 		createFn: func(_ context.Context, _, _, _, _ string, _ time.Time) (uuid.UUID, error) {
 			t.Fatal("Create should not be called")
-			return uuid.Nil, nil
+			return uuid.Nil(), nil
 		},
 		getByLoginFn: func(_ context.Context, _ string) (*domain.UserWithPassword, error) {
 			t.Fatal("GetByLogin should not be called")
@@ -611,7 +611,7 @@ func TestLogoutHandlerInvalidToken(t *testing.T) {
 	repo := &handlersRepoStub{
 		createFn: func(_ context.Context, _, _, _, _ string, _ time.Time) (uuid.UUID, error) {
 			t.Fatal("Create should not be called")
-			return uuid.Nil, nil
+			return uuid.Nil(), nil
 		},
 		getByLoginFn: func(_ context.Context, _ string) (*domain.UserWithPassword, error) {
 			t.Fatal("GetByLogin should not be called")
@@ -666,7 +666,7 @@ func TestGetMeHandlerUnauthorizedWithoutMiddlewareContext(t *testing.T) {
 	repo := &handlersRepoStub{
 		createFn: func(_ context.Context, _, _, _, _ string, _ time.Time) (uuid.UUID, error) {
 			t.Fatal("Create should not be called")
-			return uuid.Nil, nil
+			return uuid.Nil(), nil
 		},
 		getByLoginFn: func(_ context.Context, _ string) (*domain.UserWithPassword, error) {
 			t.Fatal("GetByLogin should not be called")
@@ -719,7 +719,7 @@ func TestGetMeHandlerSuccessThroughMiddleware(t *testing.T) {
 	repo := &handlersRepoStub{
 		createFn: func(_ context.Context, _, _, _, _ string, _ time.Time) (uuid.UUID, error) {
 			t.Fatal("Create should not be called")
-			return uuid.Nil, nil
+			return uuid.Nil(), nil
 		},
 		getByLoginFn: func(_ context.Context, _ string) (*domain.UserWithPassword, error) {
 			t.Fatal("GetByLogin should not be called")
@@ -803,7 +803,7 @@ func TestGetMeHandlerNotFound(t *testing.T) {
 	repo := &handlersRepoStub{
 		createFn: func(_ context.Context, _, _, _, _ string, _ time.Time) (uuid.UUID, error) {
 			t.Fatal("Create should not be called")
-			return uuid.Nil, nil
+			return uuid.Nil(), nil
 		},
 		getByLoginFn: func(_ context.Context, _ string) (*domain.UserWithPassword, error) {
 			t.Fatal("GetByLogin should not be called")

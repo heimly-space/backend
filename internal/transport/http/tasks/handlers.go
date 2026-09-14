@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"uuid"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	domain "heimly.space/backend/internal/domain/tasks"
 	"heimly.space/backend/internal/httpdto"
 	httpmw "heimly.space/backend/internal/transport/http/middleware"
@@ -251,7 +251,7 @@ func parseHouseholdID(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) 
 	parsed, err := uuid.Parse(raw)
 	if err != nil {
 		http.Error(w, "invalid household id", http.StatusBadRequest)
-		return uuid.Nil, false
+		return uuid.Nil(), false
 	}
 	return parsed, true
 }
@@ -261,7 +261,7 @@ func parseTaskID(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
 	parsed, err := uuid.Parse(raw)
 	if err != nil {
 		http.Error(w, "invalid task id", http.StatusBadRequest)
-		return uuid.Nil, false
+		return uuid.Nil(), false
 	}
 	return parsed, true
 }

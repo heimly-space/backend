@@ -3,8 +3,7 @@ package users
 import (
 	"context"
 	"time"
-
-	"github.com/google/uuid"
+	"uuid"
 )
 
 type AccessTokenStore interface {

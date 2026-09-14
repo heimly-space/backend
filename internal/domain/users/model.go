@@ -2,8 +2,7 @@ package users
 
 import (
 	"time"
-
-	"github.com/google/uuid"
+	"uuid"
 )
 
 type User struct {

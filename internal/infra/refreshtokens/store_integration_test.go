@@ -7,8 +7,8 @@ import (
 	"os"
 	"testing"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	domain "heimly.space/backend/internal/domain/users"
 )
 
@@ -16,9 +16,9 @@ func TestStoreRotateAndRevokeIntegration(t *testing.T) {
 	store := newIntegrationStore(t)
 	ctx := context.Background()
 	userID := uuid.New()
-	oldJTI := uuid.NewString()
-	newJTI := uuid.NewString()
-	nextJTI := uuid.NewString()
+	oldJTI := uuid.New().String()
+	newJTI := uuid.New().String()
+	nextJTI := uuid.New().String()
 
 	if err := store.Store(ctx, userID, oldJTI, 2*time.Minute); err != nil {
 		t.Fatalf("store refresh jti: %v", err)
@@ -46,8 +46,8 @@ func TestStoreRejectsCrossUserRotationAndRevokeIntegration(t *testing.T) {
 	ctx := context.Background()
 	userA := uuid.New()
 	userB := uuid.New()
-	jti := uuid.NewString()
-	rotatedJTI := uuid.NewString()
+	jti := uuid.New().String()
+	rotatedJTI := uuid.New().String()
 
 	if err := store.Store(ctx, userA, jti, 2*time.Minute); err != nil {
 		t.Fatalf("store refresh jti: %v", err)
@@ -80,6 +80,6 @@ func newIntegrationStore(t *testing.T) *Store {
 		t.Skipf("skip integration test: valkey not available at %s (%v)", cacheURL, err)
 	}
 
-	store.keyPrefix = fmt.Sprintf("auth:test:refresh:%s:", uuid.NewString())
+	store.keyPrefix = fmt.Sprintf("auth:test:refresh:%s:", uuid.New().String())
 	return store
 }

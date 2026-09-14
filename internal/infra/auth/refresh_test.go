@@ -4,8 +4,7 @@ import (
 	"errors"
 	"testing"
 	"time"
-
-	"github.com/google/uuid"
+	"uuid"
 )
 
 func TestGenerateRefreshToken(t *testing.T) {

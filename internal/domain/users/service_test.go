@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	authinfra "heimly.space/backend/internal/infra/auth"
 )
 
@@ -205,7 +205,7 @@ func TestServiceLoginSuccess(t *testing.T) {
 		Repo: &repoStub{
 			createFn: func(_ context.Context, _, _, _, _ string, _ time.Time) (uuid.UUID, error) {
 				t.Fatal("Create should not be called in Login")
-				return uuid.Nil, nil
+				return uuid.Nil(), nil
 			},
 			getByLoginFn: func(_ context.Context, login string) (*UserWithPassword, error) {
 				if login != "john" {
@@ -291,7 +291,7 @@ func TestServiceLoginInvalidCredentials(t *testing.T) {
 			Repo: &repoStub{
 				createFn: func(_ context.Context, _, _, _, _ string, _ time.Time) (uuid.UUID, error) {
 					t.Fatal("Create should not be called in Login")
-					return uuid.Nil, nil
+					return uuid.Nil(), nil
 				},
 				getByLoginFn: func(_ context.Context, _ string) (*UserWithPassword, error) {
 					return nil, ErrUserNotFound
@@ -342,7 +342,7 @@ func TestServiceLoginInvalidCredentials(t *testing.T) {
 			Repo: &repoStub{
 				createFn: func(_ context.Context, _, _, _, _ string, _ time.Time) (uuid.UUID, error) {
 					t.Fatal("Create should not be called in Login")
-					return uuid.Nil, nil
+					return uuid.Nil(), nil
 				},
 				getByLoginFn: func(_ context.Context, _ string) (*UserWithPassword, error) {
 					return &UserWithPassword{
@@ -407,7 +407,7 @@ func TestServiceRefresh(t *testing.T) {
 		Repo: &repoStub{
 			createFn: func(_ context.Context, _, _, _, _ string, _ time.Time) (uuid.UUID, error) {
 				t.Fatal("Create should not be called in Refresh")
-				return uuid.Nil, nil
+				return uuid.Nil(), nil
 			},
 			getByLoginFn: func(_ context.Context, _ string) (*UserWithPassword, error) {
 				t.Fatal("GetByLogin should not be called in Refresh")
@@ -497,7 +497,7 @@ func TestServiceRefreshInvalidToken(t *testing.T) {
 		Repo: &repoStub{
 			createFn: func(_ context.Context, _, _, _, _ string, _ time.Time) (uuid.UUID, error) {
 				t.Fatal("Create should not be called in Refresh")
-				return uuid.Nil, nil
+				return uuid.Nil(), nil
 			},
 			getByLoginFn: func(_ context.Context, _ string) (*UserWithPassword, error) {
 				t.Fatal("GetByLogin should not be called in Refresh")
@@ -544,7 +544,7 @@ func TestServiceLogout(t *testing.T) {
 		Repo: &repoStub{
 			createFn: func(_ context.Context, _, _, _, _ string, _ time.Time) (uuid.UUID, error) {
 				t.Fatal("Create should not be called in Logout")
-				return uuid.Nil, nil
+				return uuid.Nil(), nil
 			},
 			getByLoginFn: func(_ context.Context, _ string) (*UserWithPassword, error) {
 				t.Fatal("GetByLogin should not be called in Logout")

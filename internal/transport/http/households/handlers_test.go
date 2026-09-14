@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"uuid"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	domain "heimly.space/backend/internal/domain/households"
 	httpmw "heimly.space/backend/internal/transport/http/middleware"
 )

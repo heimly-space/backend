@@ -5,8 +5,7 @@ import (
 	"errors"
 	"testing"
 	"time"
-
-	"github.com/google/uuid"
+	"uuid"
 )
 
 type repoStub struct {
@@ -107,7 +106,7 @@ func TestCreateTaskWithAssigneesDeduplicates(t *testing.T) {
 
 	_, err := svc.Create(context.Background(), householdID, actorID, CreateTaskInput{
 		Title:       "Paint the white roses",
-		AssigneeIDs: []uuid.UUID{a1, a1, uuid.Nil, a2},
+		AssigneeIDs: []uuid.UUID{a1, a1, uuid.Nil(), a2},
 	})
 	if err != nil {
 		t.Fatalf("create task: %v", err)

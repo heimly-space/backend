@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	authinfra "heimly.space/backend/internal/infra/auth"
 )
 

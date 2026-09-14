@@ -2,8 +2,7 @@ package households
 
 import (
 	"time"
-
-	"github.com/google/uuid"
+	"uuid"
 )
 
 type Household struct {

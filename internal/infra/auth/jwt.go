@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"time"
+	"uuid"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
 )
 
 var ErrInvalidToken = errors.New("invalid token")
@@ -18,7 +18,7 @@ func GenerateToken(userID uuid.UUID, secret string, ttl time.Duration) (string, 
 
 func GenerateTokenWithJTI(userID uuid.UUID, secret string, ttl time.Duration) (string, string, error) {
 	now := time.Now()
-	jti := uuid.NewString()
+	jti := uuid.New().String()
 	claims := jwt.RegisteredClaims{
 		Subject:   userID.String(),
 		ID:        jti,
@@ -37,7 +37,7 @@ func GenerateTokenWithJTI(userID uuid.UUID, secret string, ttl time.Duration) (s
 func ParseToken(tokenStr, secret string) (uuid.UUID, error) {
 	claims, err := ParseTokenClaims(tokenStr, secret)
 	if err != nil {
-		return uuid.Nil, err
+		return uuid.Nil(), err
 	}
 	return claims.UserID, nil
 }

@@ -6,9 +6,9 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"uuid"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	domain "heimly.space/backend/internal/domain/households"
 	httpmw "heimly.space/backend/internal/transport/http/middleware"
 )
@@ -202,7 +202,7 @@ func parseHouseholdID(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) 
 	id, err := uuid.Parse(raw)
 	if err != nil {
 		http.Error(w, "invalid household id", http.StatusBadRequest)
-		return uuid.Nil, false
+		return uuid.Nil(), false
 	}
 	return id, true
 }

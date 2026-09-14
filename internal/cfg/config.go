@@ -8,8 +8,8 @@ import (
 	"os"
 	"strconv"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	"gopkg.in/yaml.v3"
 )
 

@@ -3,8 +3,8 @@ package householdsrepo
 import (
 	"context"
 	"errors"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"

@@ -6,8 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
-
-	"github.com/google/uuid"
+	"uuid"
 )
 
 func TestLoadCreatesConfigWithDefaultsAndRuntimeEnv(t *testing.T) {
@@ -19,7 +18,7 @@ func TestLoadCreatesConfigWithDefaultsAndRuntimeEnv(t *testing.T) {
 
 	cfg := Load()
 
-	if cfg.ID == uuid.Nil {
+	if cfg.ID == uuid.Nil() {
 		t.Fatal("expected non-empty instance id")
 	}
 	if !cfg.ShareData {
