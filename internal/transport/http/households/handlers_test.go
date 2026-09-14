@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"uuid"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	domain "heimly.space/backend/internal/domain/households"
 	httpmw "heimly.space/backend/internal/transport/http/middleware"
 )
@@ -107,7 +107,7 @@ func TestCreateHandlerSuccess(t *testing.T) {
 	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if resp.ID != householdID.String() || resp.Name != "Mad Tea House" || !resp.CreatedAt.Equal(createdAt) {
+	if resp.ID != householdID || resp.Name != "Mad Tea House" || !resp.CreatedAt.Equal(createdAt) {
 		t.Fatalf("unexpected response: %+v", resp)
 	}
 }

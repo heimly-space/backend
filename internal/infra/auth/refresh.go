@@ -2,8 +2,7 @@ package auth
 
 import (
 	"time"
-
-	"github.com/google/uuid"
+	"uuid"
 )
 
 func GenerateRefreshToken(userID uuid.UUID, secret string, ttl time.Duration) (string, string, error) {

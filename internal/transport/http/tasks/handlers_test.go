@@ -9,9 +9,9 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+	"uuid"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	domain "heimly.space/backend/internal/domain/tasks"
 	httpmw "heimly.space/backend/internal/transport/http/middleware"
 )
@@ -122,7 +122,7 @@ func TestCreateTaskHandlerSuccess(t *testing.T) {
 	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if resp.ID != taskID.String() {
+	if resp.ID != taskID {
 		t.Fatalf("unexpected id: %s", resp.ID)
 	}
 	if len(resp.AssigneeIDs) != 2 {
@@ -252,8 +252,8 @@ func TestUpdateTaskHandlerClearAssignees(t *testing.T) {
 
 func TestListTasksHandlerInvalidAssignee(t *testing.T) {
 	h := &Handlers{Tasks: &domain.Service{Repo: &repoStub{}}}
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/households/"+uuid.NewString()+"/tasks?assignee=bad", nil)
-	req = withRouteID(req, uuid.NewString())
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/households/"+uuid.New().String()+"/tasks?assignee=bad", nil)
+	req = withRouteID(req, uuid.New().String())
 	req = req.WithContext(httpmw.ContextWithUserID(req.Context(), uuid.New()))
 	rec := httptest.NewRecorder()
 

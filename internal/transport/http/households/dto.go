@@ -1,6 +1,9 @@
 package households
 
-import "time"
+import (
+	"time"
+	"uuid"
+)
 
 type CreateRequest struct {
 	Name string `json:"name"`
@@ -11,13 +14,13 @@ type InviteMemberRequest struct {
 }
 
 type HouseholdResponse struct {
-	ID        string    `json:"id"`
+	ID        uuid.UUID `json:"id"`
 	Name      string    `json:"name"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
 type HouseholdWithRoleResponse struct {
-	ID        string    `json:"id"`
+	ID        uuid.UUID `json:"id"`
 	Name      string    `json:"name"`
 	Role      string    `json:"role"`
 	CreatedAt time.Time `json:"created_at"`
@@ -29,7 +32,7 @@ type HouseholdsResponse struct {
 }
 
 type MemberResponse struct {
-	UserID    string    `json:"user_id"`
+	UserID    uuid.UUID `json:"user_id"`
 	Email     string    `json:"email"`
 	Name      string    `json:"name"`
 	Role      string    `json:"role"`

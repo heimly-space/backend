@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"uuid"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	domain "heimly.space/backend/internal/domain/tasks"
 	"heimly.space/backend/internal/httpdto"
 	httpmw "heimly.space/backend/internal/transport/http/middleware"
@@ -251,7 +251,7 @@ func parseHouseholdID(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) 
 	parsed, err := uuid.Parse(raw)
 	if err != nil {
 		http.Error(w, "invalid household id", http.StatusBadRequest)
-		return uuid.Nil, false
+		return uuid.Nil(), false
 	}
 	return parsed, true
 }
@@ -261,7 +261,7 @@ func parseTaskID(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
 	parsed, err := uuid.Parse(raw)
 	if err != nil {
 		http.Error(w, "invalid task id", http.StatusBadRequest)
-		return uuid.Nil, false
+		return uuid.Nil(), false
 	}
 	return parsed, true
 }
@@ -291,8 +291,8 @@ func handleTaskError(w http.ResponseWriter, err error) {
 
 func toTaskResponse(task *domain.Task) TaskResponse {
 	resp := TaskResponse{
-		ID:          task.ID.String(),
-		HouseholdID: task.HouseholdID.String(),
+		ID:          task.ID,
+		HouseholdID: task.HouseholdID,
 		Title:       task.Title,
 		Description: task.Description,
 		Status:      task.Status,
@@ -304,9 +304,9 @@ func toTaskResponse(task *domain.Task) TaskResponse {
 		resp.DueAt = &d
 	}
 	if len(task.AssigneeIDs) > 0 {
-		resp.AssigneeIDs = make([]string, 0, len(task.AssigneeIDs))
+		resp.AssigneeIDs = make([]uuid.UUID, 0, len(task.AssigneeIDs))
 		for _, assigneeID := range task.AssigneeIDs {
-			resp.AssigneeIDs = append(resp.AssigneeIDs, assigneeID.String())
+			resp.AssigneeIDs = append(resp.AssigneeIDs, assigneeID)
 		}
 	}
 	return resp

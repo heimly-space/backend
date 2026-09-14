@@ -2,8 +2,7 @@ package tasks
 
 import (
 	"context"
-
-	"github.com/google/uuid"
+	"uuid"
 )
 
 type Repository interface {

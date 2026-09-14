@@ -2,8 +2,7 @@ package tasks
 
 import (
 	"time"
-
-	"github.com/google/uuid"
+	"uuid"
 )
 
 const (

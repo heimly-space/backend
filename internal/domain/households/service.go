@@ -10,8 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/google/uuid"
+	"uuid"
 )
 
 type Service struct {
@@ -179,7 +178,7 @@ func parseHouseholdsCursor(raw, secret string) (*ListCursor, error) {
 	if err != nil {
 		return nil, err
 	}
-	if id == uuid.Nil {
+	if id == uuid.Nil() {
 		return nil, nil
 	}
 	return &ListCursor{MemberCreatedAt: t, HouseholdID: id}, nil
@@ -194,7 +193,7 @@ func parseMembersCursor(raw, secret string) (*MembersListCursor, error) {
 	if err != nil {
 		return nil, err
 	}
-	if id == uuid.Nil {
+	if id == uuid.Nil() {
 		return nil, nil
 	}
 	return &MembersListCursor{MemberCreatedAt: t, UserID: id}, nil
@@ -207,21 +206,21 @@ func encodeMembersCursor(cursor MembersListCursor, secret string) string {
 func parseTimeUUIDCursor(raw, secret string) (time.Time, uuid.UUID, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
-		return time.Time{}, uuid.Nil, nil
+		return time.Time{}, uuid.Nil(), nil
 	}
 
 	first, second, err := parseSignedCursor(raw, secret)
 	if err != nil {
-		return time.Time{}, uuid.Nil, err
+		return time.Time{}, uuid.Nil(), err
 	}
 
 	ns, err := strconv.ParseInt(first, 10, 64)
 	if err != nil {
-		return time.Time{}, uuid.Nil, err
+		return time.Time{}, uuid.Nil(), err
 	}
 	parsedID, err := uuid.Parse(second)
 	if err != nil {
-		return time.Time{}, uuid.Nil, err
+		return time.Time{}, uuid.Nil(), err
 	}
 
 	return time.Unix(0, ns).UTC(), parsedID, nil

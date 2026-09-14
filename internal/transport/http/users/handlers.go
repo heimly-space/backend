@@ -147,7 +147,7 @@ func (h *AuthHandlers) GetMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, UserResponse{
-		ID:       user.ID.String(),
+		ID:       user.ID,
 		Login:    user.Login,
 		Email:    user.Email,
 		Name:     user.Name,

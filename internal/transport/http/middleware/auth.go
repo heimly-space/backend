@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"uuid"
 
-	"github.com/google/uuid"
 	authinfra "heimly.space/backend/internal/infra/auth"
 )
 

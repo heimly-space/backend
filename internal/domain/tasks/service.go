@@ -10,8 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/google/uuid"
+	"uuid"
 )
 
 type Service struct {
@@ -297,7 +296,7 @@ func normalizeAssigneeIDs(ids []uuid.UUID) []uuid.UUID {
 	seen := make(map[uuid.UUID]struct{}, len(ids))
 	result := make([]uuid.UUID, 0, len(ids))
 	for _, id := range ids {
-		if id == uuid.Nil {
+		if id == uuid.Nil() {
 			continue
 		}
 		if _, ok := seen[id]; ok {
@@ -327,7 +326,7 @@ func parseCursor(raw, secret string) (*TaskListCursor, error) {
 	if err != nil {
 		return nil, err
 	}
-	if id == uuid.Nil {
+	if id == uuid.Nil() {
 		return nil, nil
 	}
 	return &TaskListCursor{CreatedAt: t, TaskID: id}, nil
@@ -340,21 +339,21 @@ func encodeCursor(cursor TaskListCursor, secret string) string {
 func parseTimeUUIDCursor(raw, secret string) (time.Time, uuid.UUID, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
-		return time.Time{}, uuid.Nil, nil
+		return time.Time{}, uuid.Nil(), nil
 	}
 
 	first, second, err := parseSignedCursor(raw, secret)
 	if err != nil {
-		return time.Time{}, uuid.Nil, err
+		return time.Time{}, uuid.Nil(), err
 	}
 
 	ns, err := strconv.ParseInt(first, 10, 64)
 	if err != nil {
-		return time.Time{}, uuid.Nil, err
+		return time.Time{}, uuid.Nil(), err
 	}
 	parsedID, err := uuid.Parse(second)
 	if err != nil {
-		return time.Time{}, uuid.Nil, err
+		return time.Time{}, uuid.Nil(), err
 	}
 
 	return time.Unix(0, ns).UTC(), parsedID, nil

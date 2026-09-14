@@ -4,9 +4,9 @@ import (
 	"errors"
 	"testing"
 	"time"
+	"uuid"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
 )
 
 func TestGenerateAndParseToken(t *testing.T) {
@@ -84,7 +84,7 @@ func TestParseTokenExpired(t *testing.T) {
 func TestParseTokenInvalidSubjectUUID(t *testing.T) {
 	claims := jwt.RegisteredClaims{
 		Subject:   "not-a-uuid",
-		ID:        uuid.NewString(),
+		ID:        uuid.New().String(),
 		IssuedAt:  jwt.NewNumericDate(time.Now()),
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
 	}
@@ -101,8 +101,8 @@ func TestParseTokenInvalidSubjectUUID(t *testing.T) {
 
 func TestParseTokenWrongSigningMethod(t *testing.T) {
 	claims := jwt.RegisteredClaims{
-		Subject:   uuid.NewString(),
-		ID:        uuid.NewString(),
+		Subject:   uuid.New().String(),
+		ID:        uuid.New().String(),
 		IssuedAt:  jwt.NewNumericDate(time.Now()),
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
 	}
@@ -119,7 +119,7 @@ func TestParseTokenWrongSigningMethod(t *testing.T) {
 
 func TestParseTokenMissingJTI(t *testing.T) {
 	claims := jwt.RegisteredClaims{
-		Subject:   uuid.NewString(),
+		Subject:   uuid.New().String(),
 		IssuedAt:  jwt.NewNumericDate(time.Now()),
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
 	}
@@ -136,7 +136,7 @@ func TestParseTokenMissingJTI(t *testing.T) {
 
 func TestParseTokenInvalidJTI(t *testing.T) {
 	claims := jwt.RegisteredClaims{
-		Subject:   uuid.NewString(),
+		Subject:   uuid.New().String(),
 		ID:        "not-a-uuid",
 		IssuedAt:  jwt.NewNumericDate(time.Now()),
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+	"uuid"
 
 	"heimly.space/backend/internal/httpdto"
 )
@@ -88,13 +89,13 @@ func (r *PatchTaskRequest) UnmarshalJSON(data []byte) error {
 }
 
 type TaskResponse struct {
-	ID          string        `json:"id"`
-	HouseholdID string        `json:"household_id"`
+	ID          uuid.UUID     `json:"id"`
+	HouseholdID uuid.UUID     `json:"household_id"`
 	Title       string        `json:"title"`
 	Description string        `json:"description,omitempty"`
 	Status      string        `json:"status"`
 	DueAt       *httpdto.Date `json:"due_at,omitempty"`
-	AssigneeIDs []string      `json:"assignee_ids,omitempty"`
+	AssigneeIDs []uuid.UUID   `json:"assignee_ids,omitempty"`
 	CreatedAt   time.Time     `json:"created_at"`
 	UpdatedAt   time.Time     `json:"updated_at"`
 }

@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
@@ -43,9 +43,9 @@ func (r *Repo) Create(
 	).Scan(&id)
 	if err != nil {
 		if isUniqueViolation(err) {
-			return uuid.Nil, domain.ErrUserExists
+			return uuid.Nil(), domain.ErrUserExists
 		}
-		return uuid.Nil, err
+		return uuid.Nil(), err
 	}
 
 	return id, nil

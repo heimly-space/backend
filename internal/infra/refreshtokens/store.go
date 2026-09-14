@@ -12,8 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	domain "heimly.space/backend/internal/domain/users"
 )
 
