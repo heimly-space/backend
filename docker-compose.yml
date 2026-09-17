@@ -1,11 +1,8 @@
+name: ${HEIMLY_PROJECT_NAME:-heimly}
 services:
   backend:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/heimly-space/backend:latest
     restart: unless-stopped
-    env_file:
-      - .env
     environment:
       PORT: "${HEIMLY_PORT}"
       DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable"
@@ -24,9 +21,15 @@ services:
       rustfs:
         condition: service_healthy
     volumes:
-      - heimly_config:/app/.heimly/config
+      - config:/app/.heimly/config
     networks:
-      - heimly_net
+      - private
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:$${PORT}/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
 
   postgres:
     image: postgres:18-alpine
@@ -34,44 +37,39 @@ services:
     env_file:
       - .env
     volumes:
-      - heimly_db:/var/lib/postgresql
-    ports:
-      - "${POSTGRES_PORT}:5432"
+      - db:/var/lib/postgresql
     networks:
-      - heimly_net
+      - private
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB} || exit 1']
       interval: 3s
       timeout: 10s
-      retries: 3
+      retries: 10
+      start_period: 20s
 
   valkey:
     image: valkey/valkey:9-alpine
     restart: unless-stopped
-    ports:
-      - "${VALKEY_PORT}:6379"
     networks:
-      - heimly_net
+      - private
     volumes:
-      - heimly_cache:/data
+      - cache:/data
     healthcheck:
       test: ['CMD', 'valkey-cli', 'ping']
       interval: 3s
       timeout: 10s
-      retries: 3
+      retries: 10
+      start_period: 10s
 
   rustfs:
     image: rustfs/rustfs:latest
     restart: unless-stopped
     env_file:
       - .env
-    ports:
-      - "${RUSTFS_PORT}:9000"
-      - "${RUSTFS_CONSOLE_PORT}:9001"
     volumes:
-      - heimly_storage:/data
+      - storage:/data
     networks:
-      - heimly_net
+      - private
     healthcheck:
       test: ['CMD-SHELL', 'curl -fsS http://localhost:9000/health && curl -fsS http://localhost:9001/rustfs/console/health || exit 1']
       interval: 30s
@@ -80,11 +78,11 @@ services:
       start_period: 40s
 
 networks:
-  heimly_net:
-    name: ${NETWORK_NAME}
+  private:
+    internal: true
 
 volumes:
-  heimly_config:
-  heimly_db:
-  heimly_cache:
-  heimly_storage:
+  config:
+  db:
+  cache:
+  storage:
